@@ -4,6 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
+#include "GenericTeamAgentInterface.h"
+#include "LikeSoulLikeType.h"
 #include "SoulLikeController.generated.h"
 
 
@@ -14,11 +16,16 @@ class UEnhancedInputComponent;
 struct FInputActionInstance;
 
 UCLASS()
-class LIKESOULLIKE_API ASoulLikeController : public APlayerController
+class LIKESOULLIKE_API ASoulLikeController : public APlayerController, public IGenericTeamAgentInterface
 {
 	GENERATED_BODY()
 
 public:
+	virtual FGenericTeamId GetGenericTeamId() const override
+	{
+		return FGenericTeamId(static_cast<uint8>(ETeam::T_Player)); //
+	}
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "InputControl")
 	UInputMappingContext * IMC_MoveDefault;
 

@@ -3,6 +3,7 @@
 
 #include "Weapon_Bow.h"
 #include "CharacterDefaultBase.h"
+#include "CharacterPlayableBase.h"
 #include "AnimInstanceDefaultBase.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "ControlRig.h"
@@ -13,14 +14,26 @@
 #include "DA_WeaponDefaultData.h"
 #include "Manager_Calculate.h"
 #include "Manager_Projectile.h"
+#include "Kismet/GameplayStatics.h"
+#include "Components/SplineComponent.h"
+#include "Components/SplineMeshComponent.h"
 
 void AWeapon_Bow::BeginPlay()
 {
     Super::BeginPlay();
     ProjectileManager = GetWorld()->GetGameInstance()->GetSubsystem<UManager_Projectile>();
+
+    StringMidLoc = Cast<USceneComponent>(GetDefaultSubobjectByName(TEXT("BowStringMid")));
+    ArrowPointLoc = Cast<USceneComponent>(GetDefaultSubobjectByName(TEXT("ArrowPointPos")));
+    LuanchPos = Cast<USceneComponent>(GetDefaultSubobjectByName(TEXT("LauchPos")));
+    SetActorEnableCollision(false);
+    
+    MultiShot = false;
+    IsAiming = false;
+    IsLoadingBow = false;
 }
 
-void AWeapon_Bow::SettingWeaponLocation(ACharacterDefaultBase* Character)
+void AWeapon_Bow::SettingWeaponData(ACharacterDefaultBase* Character)
 {
     if (DADefaultData)
     {
@@ -32,7 +45,7 @@ void AWeapon_Bow::SettingWeaponLocation(ACharacterDefaultBase* Character)
             {
                 if (Comp && Comp->GetName() == Elem.MeshName)
                 {
-                    WeaponMeshInitData temp;
+                    FWeaponMeshInitData temp;
                     temp.SocketName = Elem.SocketName;
                     temp.Mesh = Comp;
                     temp.InitTransForm = Elem.Transform;
@@ -41,6 +54,7 @@ void AWeapon_Bow::SettingWeaponLocation(ACharacterDefaultBase* Character)
                     mapWeaponMesh.Add(FName(Elem.MeshName), temp);
                     if (Elem.MeshName == "Bow") BowMesh = Cast<USkeletalMeshComponent>(Comp);
                     if (Elem.MeshName == "MainArrow") ArrowMesh = Cast<UStaticMeshComponent>(Comp);
+                    if (Elem.MeshName == "LineMesh") TrajectoryMesh = Cast<UStaticMesh>(Comp);
                     if (Elem.MeshName.Left(5) == "Arrow") AdditionalArrow.Add(Cast<UStaticMeshComponent>(Comp));
 
                     Comp->AttachToComponent(Character->GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, Elem.SocketName);
@@ -51,16 +65,9 @@ void AWeapon_Bow::SettingWeaponLocation(ACharacterDefaultBase* Character)
         }
     }
 
+    SplineComp = GetComponentByClass<USplineComponent>();
+    CalculateBaseDamage(OwnerCharacter);
     OwnerCharacter = Character;
-    SetActorEnableCollision(false);
-
-    StringMidLoc = Cast<USceneComponent>(GetDefaultSubobjectByName(TEXT("BowStringMid")));
-    ArrowPointLoc = Cast<USceneComponent>(GetDefaultSubobjectByName(TEXT("ArrowPointPos")));
-    LuanchPos = Cast<USceneComponent>(GetDefaultSubobjectByName(TEXT("LauchPos")));
-    
-    MultiShot = false;
-    IsAiming = false;
-    IsLoadingBow = false;
     if (BowMesh)
     {
         BowAnimInstance = Cast<UAnimInstanceBow>(BowMesh->GetAnimInstance());
@@ -106,7 +113,7 @@ void AWeapon_Bow::Tick(float DeltaTime)
         if (MultiShot)
         {
             FRotator tempRot;
-            for (int i = 0 ; i < AdditionalArrow.Num(); ++i)
+            for (int32 i = 0 ; i < AdditionalArrow.Num(); ++i)
             {
                 FVector FanAxis = BowMesh->GetForwardVector();
                 float AngleDeg;
@@ -146,7 +153,7 @@ void AWeapon_Bow::ArrowLoaded()
 void AWeapon_Bow::ArrowFired()
 {
     IsLoadingBow = false;
-    FDamageData damageData = CalculatManager->CaculateAttackDamage(OwnerCharacter);
+    FDamageData FinalDamage = CalBaseDamage * CurrentMotionMutiply;
     if(IsAiming)
     {
         AController* pc = OwnerCharacter->GetController();
@@ -159,7 +166,7 @@ void AWeapon_Bow::ArrowFired()
           
             if (MultiShot)
             {
-                for (int i = 0; i < 7; ++i)
+                for (int32 i = 0; i < 7; ++i)
                 {
                     float YawOffset = (i - 3) * 15;
                     FRotator ShotRot = AimRot;
@@ -171,7 +178,7 @@ void AWeapon_Bow::ArrowFired()
                     {
                         Arrow->SetActorLocation(LuanchPos->GetComponentLocation());
                         Arrow->SetActorRotation(ShotDir.Rotation());
-                        Arrow->Fire(OwnerCharacter, damageData, LuanchPos->GetComponentLocation(), ShotDir, 3000);
+                        Arrow->Fire(OwnerCharacter, FinalDamage, LuanchPos->GetComponentLocation(), ShotDir, 3000);
                     }
                 }
             }
@@ -182,7 +189,7 @@ void AWeapon_Bow::ArrowFired()
                 {
                     Arrow->SetActorLocation(LuanchPos->GetComponentLocation());
                     Arrow->SetActorRotation(FireDir.Rotation());
-                    Arrow->Fire(OwnerCharacter, damageData, LuanchPos->GetComponentLocation(), FireDir, 3000);
+                    Arrow->Fire(OwnerCharacter, FinalDamage, LuanchPos->GetComponentLocation(), FireDir, 3000);
                 }
             }   
         }
@@ -191,7 +198,7 @@ void AWeapon_Bow::ArrowFired()
     {
         if (MultiShot)
         {
-            for (int i = 0; i < 7; ++i)
+            for (int32 i = 0; i < 7; ++i)
             {
                 FVector BaseDir = OwnerCharacter->GetActorForwardVector();
                 float SpreadAngle = -45.f + (i * 15.f);
@@ -202,7 +209,7 @@ void AWeapon_Bow::ArrowFired()
                 {
                     Arrow->SetActorLocation(LuanchPos->GetComponentLocation());
                     Arrow->SetActorRotation(ShotDir.Rotation());
-                    Arrow->Fire(OwnerCharacter, damageData, LuanchPos->GetComponentLocation(), ShotDir, 3000);
+                    Arrow->Fire(OwnerCharacter, FinalDamage, LuanchPos->GetComponentLocation(), ShotDir, 3000);
                 }
             }
         }
@@ -215,7 +222,7 @@ void AWeapon_Bow::ArrowFired()
             {
                 Arrow->SetActorLocation(LuanchPos->GetComponentLocation());
                 Arrow->SetActorRotation(BaseDir.Rotation());
-                Arrow->Fire(OwnerCharacter, damageData, LuanchPos->GetComponentLocation(), BaseDir, 3000);
+                Arrow->Fire(OwnerCharacter, FinalDamage, LuanchPos->GetComponentLocation(), BaseDir, 3000);
             }
         }
     }
@@ -228,30 +235,10 @@ void AWeapon_Bow::ArrowFired()
 
 }
 
-void AWeapon_Bow::StrongAttackProcess(ETriggerEvent Trigger, const FInputActionInstance& instance)
+void AWeapon_Bow::StrongAttackProcess(ETriggerEvent Trigger)
 {
-    Super::StrongAttackProcess(Trigger, instance);
-    int MaxChargeStep = 3;
-
-    switch (Trigger)
-    {
-    case ETriggerEvent::Started:
-        ChargeStep = 0;
-        break;
-    case ETriggerEvent::Triggered:
-
-        if(ChargeStep < MaxChargeStep)
-        if (instance.GetElapsedTime()/ 2.0f >= ChargeStep + 1)
-        {
-            CurrentMotionMutiply += 1;
-            ChargeStep++;
-        }
-        break;
-    case ETriggerEvent::Completed:
-        break;
-    }
 }
-void AWeapon_Bow::WeaponSkillProcess(ETriggerEvent Trigger, const FInputActionInstance& instance)
+void AWeapon_Bow::WeaponSkillProcess(ETriggerEvent Trigger)
 {
     switch (Trigger)
     {
@@ -260,28 +247,126 @@ void AWeapon_Bow::WeaponSkillProcess(ETriggerEvent Trigger, const FInputActionIn
         break;
     }
 }
-
-void AWeapon_Bow::WeaponActionProcess( ETriggerEvent Trigger, const FInputActionInstance& instance)
+void AWeapon_Bow::CalculatePredictProjectile()
 {
-    switch (Trigger)
+    if (!IsAiming || !OwnerCharacter || !LuanchPos) return;
+
+    if (!SplineComp) return;
+
+    FVector FireDir;
+    AController* PC = OwnerCharacter->GetController();
+    if (PC && PC->GetPawn() == OwnerCharacter)
     {
-        case ETriggerEvent::Triggered:
-            OwnerCharacter->GetAnimInstance()->SetAimOffsetMode(true);
-            OwnerCharacter->SetIsMoveable(false);
-            IsAiming = true;
-		break;
-        case ETriggerEvent::Completed:
-            OwnerCharacter->GetAnimInstance()->SetAimOffsetMode(false);
-            OwnerCharacter->GetAnimInstance()->StopAllMontages(0);
-            OwnerCharacter->ActionEnd();
-            IsAiming = false;
-            break;
+        FireDir = PC->GetControlRotation().Vector();
+    }
+    else
+    {
+        FireDir = OwnerCharacter->GetActorForwardVector();
+    }
+
+    FPredictProjectilePathParams Params;
+    Params.StartLocation = LuanchPos->GetComponentLocation();
+    Params.LaunchVelocity = FireDir * 3000.f;
+    Params.bTraceWithCollision = true;
+    Params.ProjectileRadius = TrajectoryRadius;
+    Params.TraceChannel = ECC_Visibility;
+    Params.MaxSimTime = TrajectorySimTime;
+    Params.SimFrequency = 15.f;
+    Params.ActorsToIgnore.Add(OwnerCharacter);
+
+    FPredictProjectilePathResult Result;
+
+    if (!UGameplayStatics::PredictProjectilePath(GetWorld(), Params, Result))
+        return;
+
+    const TArray<FPredictProjectilePathPointData>& Points = Result.PathData;
+    if (Points.Num() < 2) return;
+    SplineComp->ClearSplinePoints();
+    for (int32 i = 0; i < Points.Num(); ++i)
+    {
+        SplineComp->AddSplinePoint(
+            Points[i].Location,
+            ESplineCoordinateSpace::World,
+            false
+        );
+    }
+    SplineComp->UpdateSpline();
+
+    int32 SegmentCount = Points.Num() - 1;
+
+    while (SplineMeshThrows.Num() < SegmentCount)
+    {
+        USplineMeshComponent* Mesh = NewObject<USplineMeshComponent>();
+        Mesh->RegisterComponent();
+        Mesh->SetStaticMesh(TrajectoryMesh);
+        Mesh->SetMaterial(0, TrajectoryMaterial); 
+        Mesh->SetMobility(EComponentMobility::Movable);
+        Mesh->AttachToComponent(SplineComp, FAttachmentTransformRules::KeepRelativeTransform);
+        SplineMeshThrows.Add(Mesh);
+    }
+
+    for (int32 i = 0; i < SplineMeshThrows.Num(); ++i)
+    {
+        if (i >= SegmentCount)
+        {
+            SplineMeshThrows[i]->SetVisibility(false);
+            continue;
+        }
+
+        FVector StartPos, StartTangent;
+        FVector EndPos, EndTangent;
+
+        SplineComp->GetLocationAndTangentAtSplinePoint(
+            i, StartPos, StartTangent, ESplineCoordinateSpace::World
+        );
+        SplineComp->GetLocationAndTangentAtSplinePoint(
+            i + 1, EndPos, EndTangent, ESplineCoordinateSpace::World
+        );
+
+        SplineMeshThrows[i]->SetStartAndEnd(
+            StartPos, StartTangent,
+            EndPos, EndTangent
+        );
+        SplineMeshThrows[i]->SetVisibility(true);
     }
 }
 
-void AWeapon_Bow::AvoidProcess(ETriggerEvent Trigger, const FInputActionInstance& instance)
+void AWeapon_Bow::WeaponActionProcess( ETriggerEvent Trigger)
 {
 
+    ACharacterPlayableBase* pc = Cast<ACharacterPlayableBase>(OwnerCharacter);
+    if (!pc) return;//조준은 플레이어 캐릭터만
+    switch (Trigger)
+    {
+        case ETriggerEvent::Started:
+            pc->SetAimingMode(true);
+            //GetWorld()->GetTimerManager().SetTimer(AimDrawTimer, this, &AWeapon_Bow::CalculatePredictProjectile, 0.05f, true);
+            IsAiming = true;
+        break;
+        case ETriggerEvent::Completed:
+
+            pc->SetAimingMode(false);
+            GetWorld()->GetTimerManager().ClearTimer(AimDrawTimer);
+            IsAiming = false;
+            /*
+            if (OwnerCharacter)
+            {
+                if (SplineComp)
+                {
+                    SplineComp->ClearSplinePoints();
+                }
+            }
+
+            for (USplineMeshComponent* Mesh : SplineMeshThrows)
+            {
+                if (Mesh) Mesh->SetVisibility(false);
+            }
+            break;*/
+    }
+}
+
+void AWeapon_Bow::AvoidProcess(ETriggerEvent Trigger)
+{
     switch (Trigger)
     {
     case ETriggerEvent::Completed:

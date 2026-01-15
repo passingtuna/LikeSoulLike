@@ -8,6 +8,7 @@
 #include "WeaponDefaultBase.h"
 #include "DA_WeaponDefaultData.h"
 #include "DA_CalculateManagerData.h"
+#include "DA_ActionData.h"
 
 
 void UManager_Calculate::Initialize(FSubsystemCollectionBase& Collection)
@@ -24,64 +25,7 @@ void UManager_Calculate::Initialize(FSubsystemCollectionBase& Collection)
 	}
 }
 
-FDamageData UManager_Calculate::CaculateAttackDamage(ACharacterDefaultBase * Attacker)
-{
-	FDamageData result;
-	if (!Attacker) return result;
-	if (ACharacterPlayableBase* Playable = Cast<ACharacterPlayableBase>(Attacker))
-	{
-		result =  CaculatePlayableDamage(Playable);
-	}
-	else
-	{
-		if (ACharacterNonPlayableBase* NonPlayable = Cast<ACharacterNonPlayableBase>(Attacker))
-		{
-			result = CaculateNonePlayableDamage(NonPlayable);
-		}
-		else
-		{
-			UE_LOG(LogTemp,Warning,TEXT("AttackerMissing"));
-		}
-	}
-	return result;
-}
-
-
-FDamageData UManager_Calculate::CaculatePlayableDamage(ACharacterPlayableBase* Attacker)
-{
-	FDamageData result;
-	if (!Attacker) return result;
-	AWeaponDefaultBase* currentWeapon = Attacker->GetCurrentWeapon();
-	if (!currentWeapon) return result;
-
-	FPlayerStatus CurrentPlayerStats = Attacker->GetCurrentStatus();
-	int Upgrade = currentWeapon->GetUpgrade();
-	EWeaponInfusionType WeaponInfusion = currentWeapon->GetInfusionType();
-	result = GetWeaponBaseDamage(currentWeapon, Upgrade, WeaponInfusion, CurrentPlayerStats);
-	// 미구현 합연산 버프 계산
-
-	//미구현 기타 장비 데미지 변화율 계산
-	UE_LOG(LogTemp, Warning, TEXT("Final Damage 2 : %f"), result.PhysicalDamage);
-
-	//마지막 모션 배율 곱
-	float MotionMutiply = currentWeapon->GetCurrentMotionMulply();
-	result = result * MotionMutiply;
-	return result;
-}
-
-FDamageData UManager_Calculate::CaculateNonePlayableDamage(ACharacterNonPlayableBase* Attacker)
-{
-	FDamageData result;
-	if (!Attacker) return result;
-	AWeaponDefaultBase* currentWeapon = Attacker->GetCurrentWeapon();
-
-	result = currentWeapon->DADefaultData->DamageData.BaseDamage;
-	float MotionMutiply =  currentWeapon->GetCurrentMotionMulply();
-
-	return result;
-}
-
-FDamageData UManager_Calculate::GetWeaponBaseDamage(AWeaponDefaultBase* weapon, int Upgrade, EWeaponInfusionType Infusion, FPlayerStatus userStatus)
+FDamageData UManager_Calculate::GetWeaponBaseDamage(AWeaponDefaultBase* weapon, int32 Upgrade, EWeaponInfusionType Infusion, FPlayerStatus userStatus)
 {
 	FDamageData result;
 	if (!weapon) return result;
@@ -93,8 +37,7 @@ FDamageData UManager_Calculate::GetWeaponBaseDamage(AWeaponDefaultBase* weapon, 
 }
 
 
-
-FWeaponScaleData UManager_Calculate::CalculateWeaponScale(FWeaponScaleData BasicScale, int Upgrade, EWeaponInfusionType WeaponInfusion)
+FWeaponScaleData UManager_Calculate::CalculateWeaponScale(FWeaponScaleData BasicScale, int32 Upgrade, EWeaponInfusionType WeaponInfusion)
 {
 	FWeaponScaleData result;
 	FWeaponScaleData weaponBaseScale = BasicScale;
@@ -105,21 +48,19 @@ FWeaponScaleData UManager_Calculate::CalculateWeaponScale(FWeaponScaleData Basic
 	result = resultBaseXEditedState;
 	return result;
 }
-FWeaponScaleData UManager_Calculate::CalculateWeaponUpgradeScale(int Upgrade)
+FWeaponScaleData UManager_Calculate::CalculateWeaponUpgradeScale(int32 Upgrade)
 {
 	FWeaponScaleData result;
 	if (UCurveFloat** ItemUpgradeScaleCurve = StatusCapCurve.Find("Upgrade_Damage"))
 	{
 		if((*ItemUpgradeScaleCurve))
 		{
-			UE_LOG(LogTemp, Warning, TEXT("CalculateWeaponUpgradeScale %f"), result.StrScale);
 			float StatScale = (*ItemUpgradeScaleCurve)->GetFloatValue(Upgrade);
 			result.BaseScale = StatScale;
 			result.StrScale = StatScale;
 			result.DexScale = StatScale;
 			result.FaiScale = StatScale;
 			result.IntScale = StatScale;
-			UE_LOG(LogTemp, Warning, TEXT("CalculateWeaponUpgradeScale %f") , result.StrScale);
 		}
 	}
 	return result;
@@ -127,10 +68,8 @@ FWeaponScaleData UManager_Calculate::CalculateWeaponUpgradeScale(int Upgrade)
 FWeaponScaleData UManager_Calculate::CalculateWeaponInfusionScale(EWeaponInfusionType Infuse)
 {
 	FWeaponScaleData result;
-	UE_LOG(LogTemp, Warning, TEXT("CalculateWeaponInfusionScale 1 : %d"), Infuse);
 	if ((int)Infuse > InfusionScaleData.Num() - 1) return result;
 	result = InfusionScaleData[(int)Infuse];
-	UE_LOG(LogTemp, Warning, TEXT("CalculateWeaponInfusionScale 1 : %f"), result.StrScale);
 	return result;
 }
 
@@ -156,7 +95,6 @@ FDamageData UManager_Calculate::CalculateWeaponBaseDamage(FDamageData weaponBase
 	{
 		CapReult = (*TargetCap)->GetFloatValue(userStatus.Strong);
 		result.PhysicalDamage	+= userStatus.Strong * weaponScale.StrScale;
-		UE_LOG(LogTemp, Warning, TEXT("힘 캡 : %f , 힘 배율 : %f"), CapReult, weaponScale.StrScale);
 
 	}
 
@@ -191,40 +129,40 @@ FDamageData UManager_Calculate::CalculateWeaponBaseDamage(FDamageData weaponBase
 
 	}return result;
 }
-int UManager_Calculate::CalculateMaxHP(int Health)
+int32 UManager_Calculate::CalculateMaxHP(int32 Health)
 {
-	int result;
+	int32 result;
 	UCurveFloat** TargetCap = StatusCapCurve.Find("Hea_HP");
 	result = (*TargetCap)->GetFloatValue(Health);
 	return (result * 10);
 }
-int UManager_Calculate::CalculateMaxStemina(int Endurance)
+int32 UManager_Calculate::CalculateMaxStemina(int32 Endurance)
 {
-	int result;
+	int32 result;
 	UCurveFloat** TargetCap = StatusCapCurve.Find("End_SP");
 	result = (*TargetCap)->GetFloatValue(Endurance);
 	return result;
 
 }
-int UManager_Calculate::CalculateMaxMana(int Mentality)
+int32 UManager_Calculate::CalculateMaxMana(int32 Mentality)
 {
-	int result;
+	int32 result;
 	UCurveFloat** TargetCap = StatusCapCurve.Find("Men_MP");
 	result = (*TargetCap)->GetFloatValue(Mentality);
 	return result;
 
 }
-int UManager_Calculate::CalculateMaxToughness(int Mentality)
+int32 UManager_Calculate::CalculateMaxToughness(int32 Mentality)
 {
-	int result;
+	int32 result;
 	UCurveFloat** TargetCap = StatusCapCurve.Find("Hea_Toughness");
 	result = (*TargetCap)->GetFloatValue(Mentality);
 	return result;
 
 }
-int UManager_Calculate::CalculateMaxWeight(int Mentality)
+int32 UManager_Calculate::CalculateMaxWeight(int32 Mentality)
 {
-	int result;
+	int32 result;
 	UCurveFloat** TargetCap = StatusCapCurve.Find("End_Weight");
 	result = (*TargetCap)->GetFloatValue(Mentality);
 	return result;
@@ -252,17 +190,17 @@ FResistData UManager_Calculate::CalculateMaxResist(FPlayerStatus userStatus)
 	return result;
 }
 
-int UManager_Calculate::CalculateResist(int Status)
+int32 UManager_Calculate::CalculateResist(int32 Status)
 {
-	int result;
+	int32 result;
 	UCurveFloat** TargetCap = StatusCapCurve.Find("All_Resist");
 	result = (*TargetCap)->GetFloatValue(Status);
 	return result;
 }
 
-int UManager_Calculate::GetNextRequireSoul(int Level)
+int32 UManager_Calculate::GetNextRequireSoul(int32 Level)
 {
-	int result;
+	int32 result;
 	UCurveFloat** TargetCap = StatusCapCurve.Find("LevelRequireSoul");
 	result = (*TargetCap)->GetFloatValue(Level);
 	return result;

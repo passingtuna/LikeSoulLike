@@ -18,8 +18,6 @@ public:
 	void InitUserMenu();
 	UManager_UI* UIManager;
 	UFUNCTION(BlueprintCallable)
-	void ClickedStatusButton();
-	UFUNCTION(BlueprintCallable)
 	void ClickedInventoryButton();
 	UFUNCTION(BlueprintCallable)
 	void ClickedQuickSlotButton();

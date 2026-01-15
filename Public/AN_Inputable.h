@@ -26,6 +26,6 @@ public:
 	bool IsAttackable;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool IsRunable;
-
-	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool IsGrabable;
 };

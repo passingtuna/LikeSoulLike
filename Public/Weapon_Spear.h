@@ -14,7 +14,7 @@ class LIKESOULLIKE_API AWeapon_Spear : public AWeaponDefaultBase
 {
 	GENERATED_BODY()
 
-	virtual void AvoidProcess(ETriggerEvent Trigger, const FInputActionInstance& instance) override;
-	virtual void WeaponSkillProcess(ETriggerEvent Trigger, const FInputActionInstance& instance) override;
+	virtual void AvoidProcess(ETriggerEvent Trigger) override;
+	virtual void WeaponSkillProcess(ETriggerEvent Trigger) override;
 	
 };

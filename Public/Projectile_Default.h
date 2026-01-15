@@ -11,6 +11,7 @@ class USphereComponent;
 class UProjectileMovementComponent;
 class UManager_Calculate;
 class UAttackDecisionComponent;
+class UAudioComponent;
 UCLASS()
 class LIKESOULLIKE_API AProjectile_Default : public AActor
 {
@@ -29,6 +30,9 @@ protected:
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UAudioComponent* HitAudioComp;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	UAttackDecisionComponent* AttackDecisionComp;

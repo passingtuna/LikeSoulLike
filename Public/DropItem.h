@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "LikeSoulLikeType.h"
+#include "NiagaraComponent.h"
 #include "DropItem.generated.h"
 
 UCLASS()
@@ -24,5 +25,14 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
+	UNiagaraComponent* DropSoul;
+	UNiagaraComponent* DropItem;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool IsSoul;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "IsSoul == true", EditConditionHides))
+	int32 Soul;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "IsSoul == false", EditConditionHides))
 	FItemData ItemInfo;
+	void InitItem();
+	void SetDropSoul(int32 Soul);
 };

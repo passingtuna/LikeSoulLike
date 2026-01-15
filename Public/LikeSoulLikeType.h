@@ -7,10 +7,16 @@
 
 class UDA_ActionData;
 class ACharacterDefaultBase;
+class AWeaponDefaultBase;
 UENUM(BlueprintType)
-enum EItemType
+enum class EItemType : uint8
 {
-    IT_Consumable,IT_Armor,IT_Weapon,IT_KeyItem,IT_Refillable,IT_Material
+    IT_Consumable   UMETA(DisplayName = "Consumable"),
+    IT_Armor        UMETA(DisplayName = "Armor"),
+    IT_Weapon       UMETA(DisplayName = "Weapon"),
+    IT_KeyItem      UMETA(DisplayName = "KeyItem"),
+    IT_Refillable   UMETA(DisplayName = "Refillable"),
+    IT_Material      UMETA(DisplayName = "Material"),
 };
 
 UENUM(BlueprintType)
@@ -19,10 +25,30 @@ enum EStatusConditionType
     SCT_Poison, SCT_Buff, SCT_Debuff, SCT_Stun
 };
 UENUM(BlueprintType)
-enum EAffectionType
+enum class EAffectionType : uint8
 {
-    AT_MaxHP, AT_CurrentHp, AT_MaxStemina, AT_CurrentStemina, AT_FireResist, AT_LightningResist, AT_DevineResist, 
-    AT_PhysicsDamage, AT_FireDamage, AT_LightningDamage ,AT_MagicDamage , AT_DevineDamage
+    AT_MaxHP, 
+    AT_CurrentHp, 
+    AT_MaxStemina, 
+    AT_CurrentStemina, 
+    AT_MaxMana,
+    AT_CurrentMana,
+    AT_FireResist,
+    AT_LightningResist, 
+    AT_DevineResist, 
+    AT_PhysicsDamage, 
+    AT_FireDamage, 
+    AT_LightningDamage ,
+    AT_MagicDamage , 
+    AT_DevineDamage
+};
+UENUM(BlueprintType)
+enum class EItemObjectBelongUI : uint8
+{
+    IOBU_Inventory,
+    IOBU_Equipment, 
+    IOBU_QuickSlot,
+    IOBU_Storage
 };
 
 UENUM(BlueprintType)
@@ -32,9 +58,28 @@ enum EItemEnchantType
 };
 
 UENUM(BlueprintType)
-enum ECharacterCamp
+enum class EItemFilter : uint8
 {
-    CC_Player,CC_Neutral, CC_Monster
+    EIF_None,
+    EIF_ALL,
+    EIF_Equipment,
+    EIF_Consumable
+};
+
+UENUM(BlueprintType)
+enum class EItemButtonActionType : uint8
+{
+    EBAT_QucikSlot,
+    EBAT_WeaponSlot,
+    EBAT_EquipmentSlot,
+    EBAT_InventorySlot,
+    EBAT_StorageSlot
+};
+
+UENUM(BlueprintType)
+enum class ETeam : uint8
+{
+    T_Player,T_Neutral, T_Monster
 };
 
 
@@ -83,7 +128,6 @@ enum class EActionType : uint8
     AT_Hold         UMETA(DisplayName = "Hold"),    //Started > 자동으로 루프 ,Completed시 실행 캐릭터 이동 가능
 };
 
-
 UENUM(BlueprintType)
 enum class EDecisionType : uint8
 {
@@ -118,32 +162,38 @@ struct FComboActionData
 
 struct FPlayerStatus
 {
-    int Level           = 15;
-    int Health          = 10;
-    int Endurance       = 10;
-    int Mentality       = 10;
-    int Strong          = 10;
-    int Dextery         = 10;
-    int Intellegence    = 10;
-    int Faith           = 10;
+    int32 Level           = 15;
+    int32 Health          = 10;
+    int32 Endurance       = 10;
+    int32 Mentality       = 10;
+    int32 Strong          = 10;
+    int32 Dextery         = 10;
+    int32 Intellegence    = 10;
+    int32 Faith           = 10;
+    int32 Soul            = 0;
 };
 
+USTRUCT(BlueprintType)
 struct FCharacterState
 {
-    int HP = 100;
-    int Stemina = 100;
-    int Mana = 100;
-    int Toughness = 50;
-    int Weight = 100;
+    GENERATED_BODY()
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    int32 HP = 100;
+    int32 Stemina = 100;
+    int32 Mana = 100;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    int32 Toughness = 10;
+    int32 Weight = 100;
 };
 
 struct FResistData
 {
-    int PhysicalResist  = 0;
-    int FireResist      = 0;
-    int LightningResist = 0;
-    int MagicResist     = 0;
-    int DevineResist    = 0;
+    int32 PhysicalResist  = 0;
+    int32 FireResist      = 0;
+    int32 LightningResist = 0;
+    int32 MagicResist     = 0;
+    int32 DevineResist    = 0;
 };
 USTRUCT(BlueprintType)
 struct FDamageData
@@ -157,8 +207,36 @@ struct FDamageData
         Result.FireDamage *= Scale;
         Result.MagicDamage *= Scale;
         Result.LightningDamage *= Scale;
+        Result.StaggerDamage *= Scale;
         return Result;
     }
+    FDamageData operator+(FDamageData damage) const
+    {
+        FDamageData Result = *this;
+        Result.PhysicalDamage += damage.PhysicalDamage;
+        Result.DevineDamage += damage.DevineDamage;
+        Result.FireDamage += damage.FireDamage;
+        Result.MagicDamage += damage.MagicDamage;
+        Result.LightningDamage += damage.LightningDamage;
+        Result.StaggerDamage += damage.LightningDamage;
+        return Result;
+    }
+
+    FDamageData operator=(float damage) const
+    {
+        FDamageData Result = *this;
+        Result.PhysicalDamage = damage;
+        Result.DevineDamage = damage;
+        Result.FireDamage = damage;
+        Result.MagicDamage = damage;
+        Result.LightningDamage = damage;
+        Result.StaggerDamage = damage;
+        Result.IsParryable = (bool)damage;
+        Result.IsAvoidable = (bool)damage;
+        Result.IsGuardable = (bool)damage;
+        return Result;
+    }
+
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
     float PhysicalDamage = 0;
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -173,7 +251,7 @@ struct FDamageData
     float StaggerDamage = 0;
     bool IsParryable = 0;
     bool IsAvoidable = 0;
-    bool IsGaurdable = 0;
+    bool IsGuardable = 0;
 };
 
 
@@ -224,12 +302,12 @@ struct FWeaponSpawnEditData
 
 struct FDamageCalculateData
 {
-    int BaseDamage;
+    int32 BaseDamage;
     float MotionMultipler;
 };
 
 
-struct WeaponMeshInitData
+struct FWeaponMeshInitData
 {
     UPrimitiveComponent* Mesh;
     FName SocketName;
@@ -251,12 +329,88 @@ USTRUCT(BlueprintType)
 struct FItemData
 {
     GENERATED_BODY()
+    bool IsEquiped = false;
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
-    int ID;
+    FName ID = NAME_None;
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
-    int Count;
+    int32 Count = 0;
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
-    int Upgrade;
+    int32 Upgrade = 0;
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
     EWeaponInfusionType Infusion = EWeaponInfusionType::EWIT_None;
+};
+
+USTRUCT(BlueprintType)
+struct FItemAffectData
+{
+    GENERATED_BODY()
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    EAffectionType AffectType;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    float Value;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    float Duration;
+};
+UENUM(BlueprintType, meta = (Bitflags, UseEnumValuesAsMaskValuesInEditor = "true"))
+enum class EItemMoveRestriction : uint8
+{
+    None = 0 UMETA(Hidden),
+    NoStorage = 1 << 0,
+    NoDrop = 1 << 1,
+    NoSell = 1 << 2,
+};
+ENUM_CLASS_FLAGS(EItemMoveRestriction)
+
+USTRUCT(BlueprintType)
+struct FItemBaseData
+{
+    GENERATED_BODY()
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    FText Name;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    int32 IconIndex;
+    UPROPERTY(EditDefaultsOnly, meta = (Bitmask, BitmaskEnum = "/Script/LikeSoulLike.EItemMoveRestriction"))
+    int32  MoveRestriction = 0;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    EItemType ItemType;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    int32 MaxStackCount;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "ItemType == EItemType::IT_Consumable || ItemType == EItemType::IT_Refillable", EditConditionHides))
+    FItemAffectData ItemAffectData;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    FText ToolTip;
+};
+
+
+USTRUCT(BlueprintType)
+struct FItemPresentationData
+{
+    GENERATED_BODY()
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    TSoftClassPtr<AWeaponDefaultBase> Bp_Weapon;
+};
+
+struct FChargeMotionData
+{
+    bool Started = false;
+    float ElaseTime = 0;
+    int32 ChargeStep = 0;
+};
+
+USTRUCT(BlueprintType)
+struct FIconAtlasData
+{
+    GENERATED_BODY()
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    TSoftObjectPtr<UTexture2D> Atlas;
+    UPROPERTY(Transient)
+    TObjectPtr<UTexture2D> LoadedAtlas;
+    int32 IconSize;
+};
+
+struct FIconData
+{
+    TObjectPtr<UTexture2D> Atlas = nullptr;
+    FVector2D Uv = FVector2D::ZeroVector;
+    FVector2D IconSizeNormalized = FVector2D::ZeroVector;
 };

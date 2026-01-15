@@ -5,7 +5,7 @@
 #include "CharacterDefaultBase.h"
 #include "GameFramework/CharacterMovementComponent.h"
 
-void AWeapon_Spear::AvoidProcess(ETriggerEvent Trigger, const FInputActionInstance& instance)
+void AWeapon_Spear::AvoidProcess(ETriggerEvent Trigger)
 {
 
     switch (Trigger)
@@ -25,7 +25,7 @@ void AWeapon_Spear::AvoidProcess(ETriggerEvent Trigger, const FInputActionInstan
 
 
 
-void AWeapon_Spear::WeaponSkillProcess(ETriggerEvent Trigger, const FInputActionInstance& instance)
+void AWeapon_Spear::WeaponSkillProcess(ETriggerEvent Trigger)
 {
     switch (Trigger)
     {

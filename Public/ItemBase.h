@@ -14,15 +14,15 @@ class UItemBase : public UObject
 {
 	GENERATED_BODY()
 
-	int ID;
+	int32 ID;
 	FText Name;
 	FText Tooltip;
 	EItemType Type;
 	bool Stackable;
-	int Count;
+	int32 Count;
 
 	UPROPERTY(EditAnywhere)
 	UTexture2D* Icon;
 
-	int Upgrade;
+	int32 Upgrade;
 };

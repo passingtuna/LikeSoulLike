@@ -22,4 +22,10 @@ public:
 	UAnimMontage* StunMotion;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	UAnimMontage* GrabMotion;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UAnimMontage* GrabedMotion;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UAnimMontage* UsePotion;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UAnimMontage* UsePaper;
 };

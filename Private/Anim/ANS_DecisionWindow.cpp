@@ -8,7 +8,7 @@ void UANS_DecisionWindow::NotifyBegin(USkeletalMeshComponent* MeshComp, UAnimSeq
 {
 	DecisionChar = Cast<ACharacterDefaultBase>(MeshComp->GetOwner());
 
-	if (DecisionChar)
+	if (IsValid(DecisionChar))
 	{
 		switch (StateType)
 		{
@@ -47,7 +47,7 @@ void UANS_DecisionWindow::NotifyTick(USkeletalMeshComponent* MeshComp, UAnimSequ
 
 void UANS_DecisionWindow::NotifyEnd(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, const FAnimNotifyEventReference& EventReference)
 {
-	if (DecisionChar)
+	if (IsValid(DecisionChar))
 	{
 		switch (StateType)
 		{

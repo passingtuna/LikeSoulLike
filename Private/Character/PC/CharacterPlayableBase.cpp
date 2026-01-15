@@ -6,22 +6,39 @@
 #include "LikeSoulLikeType.h"
 #include "DA_ActionData.h"
 #include "AnimInstanceDefaultBase.h"
-#include "Manager_UI.h"
 #include "Engine/OverlapResult.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Camera/CameraComponent.h"
+#include "GameFramework/SpringArmComponent.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Manager_Calculate.h"
+#include "Manager_UI.h"
 #include "DA_DefaultMotion.h"
 #include "SoulLikeController.h"
+#include "InventoryComponent.h"
+#include "DropItem.h"
+#include "Manager_ItemInfo.h"
+#include "BoneFire.h"
+#include "Manager_Bonefire.h"
+#include "Manager_Enemy.h"
+
 
 // Sets default values
 ACharacterPlayableBase::ACharacterPlayableBase()
 {
  	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
+	InventoryComp = CreateDefaultSubobject<UInventoryComponent>(TEXT("InventoryComponent"));
+}
 
+FGenericTeamId ACharacterPlayableBase::GetGenericTeamId() const
+{
+	if (PlayerController)
+	{
+		return FGenericTeamId(PlayerController->GetGenericTeamId());
+	}
+	return FGenericTeamId(static_cast<uint8>(ETeam::T_Neutral));
 }
 
 // Called when the game starts or when spawned
@@ -29,30 +46,52 @@ void ACharacterPlayableBase::BeginPlay()
 {
 	Super::BeginPlay();
 
-	CurrentResist;
+
 	IsCrouch = false;
 	FRotator rotation = Controller->GetControlRotation();
 	FRotator yawRotation(0, rotation.Yaw, 0);
 	LastInputDir = FRotationMatrix(yawRotation).GetUnitAxis(EAxis::Y) * -1;
 
-	CharacterCamp = ECharacterCamp::CC_Player;
-
 	CameraComp = FindComponentByClass<UCameraComponent>();
+	SpringArmComp = FindComponentByClass<USpringArmComponent>();
+	InventoryComp->SetInventoryOwner(this);
 	PlayerController = Cast<ASoulLikeController>(GetController());
 
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationRoll = false;
-
-	CurrentWeaponSlot = 0;
-	AddWeaponToMainSlot(Sword, 3);
-	AddWeaponToMainSlot(Spear, 2);
-	AddWeaponToMainSlot(Bow,   1);
-
-
 	UIManager = GetWorld()->GetGameInstance()->GetSubsystem<UManager_UI>();
 	UIManager->InitUI(this);
 	UpdateStatus();
+	CurrentWeaponSlotNum = 0;
+	CurrentQuickSlotNum  = 0;
+
+	ItemInfoManager = GetGameInstance()->GetSubsystem<UManager_ItemInfo>();
+
+	AddWeaponToMainSlot(BaseWeapon, BaseWeaponSlot);
+	EqiupMainSlotWeapon(0);
+
+	FItemData temp = InventoryComp->GetWeaponSlotWeapon(CurrentWeaponSlotNum);
+	UIManager->ChangeWeaponSlot(temp);
+
+	temp = InventoryComp->GetQuickSlotItem(CurrentWeaponSlotNum);
+	UIManager->ChangeQuickSlot(temp);
+	UIManager->ChangeSoul(CurrentStatus.Soul);
+
+	GetGameInstance()->GetSubsystem<UManager_Enemy>()->UpdatePlayerCharacter(this);
+
+	BonefireManager = GetWorld()->GetGameInstance()->GetSubsystem<UManager_Bonefire>();
+	
+}
+void ACharacterPlayableBase::UpdateCurrentWeaponSlotUI()
+{
+	FItemData temp = InventoryComp->GetWeaponSlotWeapon(CurrentWeaponSlotNum);
+	UIManager->ChangeWeaponSlot(temp);
+}
+void ACharacterPlayableBase::UpdateCurrentQuickSlotUI()
+{
+	FItemData temp = InventoryComp->GetQuickSlotItem(CurrentQuickSlotNum);
+	UIManager->ChangeQuickSlot(temp);
 }
 
 // Called every frame
@@ -60,6 +99,7 @@ void ACharacterPlayableBase::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	UIManager->ChangeSoul(CurrentStatus.Soul);
 	CheckStatusCondition(DeltaTime);
 
 	if (IsLockOn && LockOnTargetChar)
@@ -74,20 +114,22 @@ void ACharacterPlayableBase::Tick(float DeltaTime)
 		}
 	}
 
-	if (AnimInstance->GetSlotMontageGlobalWeight(FName("DefaultSlot")))
+	if (CurrentWeapon)
 	{
+
 		if (CurrentWeapon->bIsTwoHanded)
 		{
-			AnimInstance->SetIsTwoHandedWeapon(false);
+			UAnimMontage* CurrentMontage = AnimInstance->GetCurrentActiveMontage();
+			if (AnimInstance->GetSlotMontageGlobalWeight(FName("DefaultSlot")) || (CurrentMontage && CurrentMontage->GetName() == "UsePotion_Montage"))
+			{
+				AnimInstance->SetIsTwoHandedWeapon(false);
+			}
+			else
+			{
+				AnimInstance->SetIsTwoHandedWeapon(true);
+			}
 		}
-		CurrentState.Toughness = 1;
-	}
-	else
-	{
-		if (CurrentWeapon->bIsTwoHanded)
-		{
-			AnimInstance->SetIsTwoHandedWeapon(true);
-		}
+
 	}
 }
 
@@ -104,15 +146,16 @@ void ACharacterPlayableBase::HandleInput(FName ActionName, ETriggerEvent Trigger
 	else if (ActionName == "Look")			Look(Trigger, instance);
 	else if (ActionName == "Avoid")			Avoid(Trigger, instance);
 
-	else if (ActionName == "Interact")		Interact(Trigger);
-	else if (ActionName == "UseItem")		UseItem(Trigger);
-	else if (ActionName == "WeaponChange")	WeaponChange(Trigger);
-	else if (ActionName == "LockOn")		LockOn(Trigger);
+	else if (ActionName == "Interact")			Interact(Trigger);
+	else if (ActionName == "UseItem")			UseItem(Trigger);
+	else if (ActionName == "WeaponChange")		WeaponChange(Trigger);
+	else if (ActionName == "QuickSlotChange")	QuickSlotChange(Trigger);
+	else if (ActionName == "LockOn")			LockOn(Trigger);
 
-	else if (ActionName == "WeakAttack")	ExcutingWeaponBaseAction(EActionInputType::AIT_WeakAttack, Trigger, instance);
-	else if (ActionName == "StrongAttack")	ExcutingWeaponBaseAction(EActionInputType::AIT_StrongAttack, Trigger, instance);
-	else if (ActionName == "WeaponAction")	ExcutingWeaponBaseAction(EActionInputType::AIT_WeaponAction, Trigger, instance);
-	else if (ActionName == "WeaponSkill")	ExcutingWeaponBaseAction(EActionInputType::AIT_WeaponSkill, Trigger, instance);
+	else if (ActionName == "WeakAttack")	ExcutingWeaponBaseAction(EActionInputType::AIT_WeakAttack, Trigger);
+	else if (ActionName == "StrongAttack")	ExcutingWeaponBaseAction(EActionInputType::AIT_StrongAttack, Trigger);
+	else if (ActionName == "WeaponAction")	ExcutingWeaponBaseAction(EActionInputType::AIT_WeaponAction, Trigger);
+	else if (ActionName == "WeaponSkill")	ExcutingWeaponBaseAction(EActionInputType::AIT_WeaponSkill, Trigger);
 	else if (ActionName == "UserMenu")      UserMenu(Trigger);
 	
 
@@ -163,6 +206,9 @@ void ACharacterPlayableBase::TryLockOn()
 		Sphere,
 		Params
 	);
+
+
+	//DrawDebugSphere(GetWorld(), GetActorLocation(), 1000, 16, FColor::Green, false, 0.05f);
 	ACharacterDefaultBase* lockOnTarget = nullptr;
 	float ClosestDistSq = 3000* 3000;
 
@@ -187,7 +233,7 @@ void ACharacterPlayableBase::TryLockOn()
 bool ACharacterPlayableBase::CheckTargetLock(ACharacterDefaultBase* Target , float & ClosestDistSq)
 {
 	if (Target == this) return false;
-	if (Target->GetCharCamp() != CC_Monster) return false;
+	if (!CheckHostileChar(Target,false)) return false; //중립과 아군은 록온타겟에서 제외
 	if (Target->GetIsDead()) return false;
 	FVector PlayerLoc = this->GetActorLocation();
 	FVector CameraLoc   = CameraComp->GetComponentLocation();
@@ -269,7 +315,7 @@ void ACharacterPlayableBase::UpdateLockOnRotation(float DeltaTime)
 
 	FRotator CurrentRot = GetController()->GetControlRotation();
 
-	FRotator NewRot = FMath::RInterpTo(CurrentRot,DesiredRot,DeltaTime,5.0f);
+	FRotator NewRot = FMath::RInterpTo(CurrentRot,DesiredRot,DeltaTime,20.0f);
 
 	GetController()->SetControlRotation(NewRot);
 }
@@ -302,7 +348,11 @@ void ACharacterPlayableBase::Move(ETriggerEvent Trigger, const FInputActionInsta
 				LastInputDir.Z = 0;
 				LastInputDir.Normalize();
 
-				if (!IsMoveable) return;
+				if (!IsMoveable || IsAimMode)
+				{
+					StopSound(true);
+					return;
+				}
 
 				CharacterMovement->bOrientRotationToMovement = true;
 				CharacterMovement->RotationRate = FRotator(0, 540, 0);
@@ -313,9 +363,23 @@ void ACharacterPlayableBase::Move(ETriggerEvent Trigger, const FInputActionInsta
 					{
 						CharacterMovement->bOrientRotationToMovement = true;
 						bUseControllerRotationYaw = false;
+					}					
+					tempVector *= 1.2f;
+					SprintStaminaAcc += Value.GetElapsedTime();
+
+					if ((Value.GetElapsedTime()- LastElapsedInterval) > 0.1f )
+					{
+						LastElapsedInterval = Value.GetElapsedTime();
+						ModifyCurrentStemina(-1);
+
+						if (CurrentState.Stemina <= 0)
+						{
+							IsRunning = false;
+						}
 					}
-					ModifyCurrentStemina(-1);
+					
 					if (CurrentState.Stemina <= 0) IsRunning = false;
+					PlaySound("Run",true);
 				}
 				else
 				{
@@ -326,17 +390,19 @@ void ACharacterPlayableBase::Move(ETriggerEvent Trigger, const FInputActionInsta
 					}
 					tempVector *= 0.6f;
 					tempVector = IsCrouch ? tempVector *= 0.5f : tempVector;
+					PlaySound("Walk", true);
 				}
-				if (IsMoveable)
-				{
-					AddMovementInput(FrontDir, tempVector.Y);
-					AddMovementInput(RightDir, tempVector.X);
-				}
+
+				AddMovementInput(FrontDir, tempVector.Y);
+				AddMovementInput(RightDir, tempVector.X);
 			}
 			break;
 		case ETriggerEvent::Completed:
 			{
+				UE_LOG(LogTemp, Warning, TEXT("StopSound"));
+				LastElapsedInterval = 0;
 				LastInputDir = FVector::ZeroVector;
+				StopSound(true);
 			}
 		break;
 		default: break;
@@ -350,7 +416,7 @@ void ACharacterPlayableBase::Look(ETriggerEvent trigger, const FInputActionInsta
 	{
 		case ETriggerEvent::Triggered:
 		{
-			bUseControllerRotationYaw = false;  // 캐릭터가 컨트롤러 회전에 따라가지 않도록
+			bUseControllerRotationYaw = false; 
 			FVector2D temp = Value.GetValue().Get<FVector2D>();
 			AddControllerYawInput(temp.X);
 			AddControllerPitchInput(temp.Y);
@@ -367,7 +433,6 @@ void ACharacterPlayableBase::Avoid(ETriggerEvent trigger, const FInputActionInst
 	{
 		case ETriggerEvent::Started:
 		{
-			UE_LOG(LogTemp, Warning, TEXT("started"));
 		}
 		break;
 		case ETriggerEvent::Triggered:
@@ -383,7 +448,6 @@ void ACharacterPlayableBase::Avoid(ETriggerEvent trigger, const FInputActionInst
 		{
 			if (IsRunning)
 			{
-				UE_LOG(LogTemp, Warning, TEXT("RunningEnd"));
 				IsRunning = false;
 			}
 			else if (LastInputDir == FVector::ZeroVector)
@@ -396,13 +460,37 @@ void ACharacterPlayableBase::Avoid(ETriggerEvent trigger, const FInputActionInst
 				FRotator TargetRot = Controller->GetControlRotation();
 				TargetRot.Pitch = TargetRot.Roll = 0;
 				SetActorRotation(TargetRot);
-				ExcutingWeaponBaseAction(EActionInputType::AIT_Avoid, trigger, Value);
+				ExcutingWeaponBaseAction(EActionInputType::AIT_Avoid, trigger);
 			}
 		}
 		break;
 	default: break;
 	}
 
+}
+
+void ACharacterPlayableBase::SetAimingMode(bool On)
+{
+	if (On)
+	{
+		GetAnimInstance()->SetAimOffsetMode(true);
+		SetIsMoveable(false);
+		IsAimMode = true;
+		SpringArmComp->TargetArmLength = 60;
+		SpringArmComp->SocketOffset.Y = 40;
+		UIManager->ShowAimWidget(true);
+	}
+	else
+	{
+		IsAimMode = false;
+		SpringArmComp->TargetArmLength = 200;
+		SpringArmComp->SocketOffset.Y = 0;
+		UE_LOG(LogTemp, Warning, TEXT("해제"));
+		GetAnimInstance()->SetAimOffsetMode(false);
+		GetAnimInstance()->StopAllMontages(0);
+		UIManager->ShowAimWidget(false);
+		ActionEnd();
+	}
 }
 void ACharacterPlayableBase::Interact(ETriggerEvent Trigger)
 {
@@ -413,28 +501,143 @@ void ACharacterPlayableBase::Interact(ETriggerEvent Trigger)
 	//상호 작용 오브젝트가 있으면 상호작용 오브젝트의 함수를 실행한다
 	switch (Trigger)
 	{
-	case ETriggerEvent::Started:
-	{
-	}
-	break;
-	case ETriggerEvent::Triggered:
-	{
-	}
-	break;
-	case ETriggerEvent::Completed:
-	{
-	}
+		case ETriggerEvent::Started:
+		{
+			TArray<FOverlapResult> Overlaps;
+
+			FCollisionShape Sphere = FCollisionShape::MakeSphere(50);
+			FCollisionQueryParams Params;
+			Params.AddIgnoredActor(this);
+
+			FVector SearchLoc = GetActorLocation() + (GetActorForwardVector() * 20);
+
+			SearchLoc.Z -= 50;
+			GetWorld()->OverlapMultiByChannel(
+				Overlaps, 
+				SearchLoc,
+				FQuat::Identity,
+				ECC_Pawn,
+				Sphere,
+				Params
+			);
+			for (auto& Target : Overlaps)
+			{
+				ADropItem* DropItem = Cast<ADropItem>(Target.GetActor());
+				if (DropItem)
+				{
+					Interact_Item(DropItem);
+				}
+
+				ABoneFire* Bonefire = Cast<ABoneFire>(Target.GetActor());
+				if (Bonefire)
+				{
+					Interact_BoneFire(Bonefire);
+				}
+			}
+			//DrawDebugSphere(GetWorld(), SearchLoc, 100, 16, FColor::Green, false, 0.05f);
+		}
+		break;
+		case ETriggerEvent::Triggered:
+		{
+		}
+		break;
+		case ETriggerEvent::Completed:
+		{
+		}
 	break;
 	default: break;
+	}
+}
+
+void ACharacterPlayableBase::Interact_Item(ADropItem* DropItem)
+{
+	PlaySound("GetItem");
+	if (DropItem->IsSoul)
+	{
+		ModifyCurrentSoul(DropItem->Soul);
+		DropItem->Destroy();
+		return;
+	}
+	else
+	{
+		FString tempString;
+		FItemData tempItemCount = DropItem->ItemInfo;
+		int32 result = InventoryComp->PutInItemToInventory(DropItem->ItemInfo);
+		if (result <= 0)
+		{
+			DropItem->Destroy();
+		}
+		else //인벤 창고 꽉차서 필드에 남김
+		{
+			tempString = TEXT("가득참 : ");
+			DropItem->ItemInfo.Count = result;
+			tempItemCount.Count -= result;
+		}
+		tempString += GetGameInstance()->GetSubsystem<UManager_ItemInfo>()->GetItemNameString(tempItemCount);
+
+		UIManager->ShowGetItemUI(DropItem->ItemInfo, FText::FromString(tempString));
+		FItemData temp = InventoryComp->GetQuickSlotItem(CurrentQuickSlotNum);
+		UIManager->ChangeQuickSlot(temp);
+		return;
+	}
+}
+void ACharacterPlayableBase::Interact_BoneFire(ABoneFire* bonefire)
+{
+	if (bonefire->IsLitedboneFire)
+	{
+		UIManager->OpenBonefireMenu(bonefire->Name);
+		GetGameInstance()->GetSubsystem<UManager_Enemy>()->RespawnAll();
+		ResetStates();
+		BonefireManager->SetLastVisitBonefireName(bonefire->Name);
+		InventoryComp->RefillInventory();
+		FItemData temp = InventoryComp->GetQuickSlotItem(CurrentQuickSlotNum);
+		UIManager->ChangeQuickSlot(temp);
+
+		UIManager->SetPlayerHP(CurrentState.HP, MaxState.HP);
+		UIManager->SetPlayerSP(CurrentState.Stemina, MaxState.Stemina);
+		UIManager->SetPlayerMP(CurrentState.Mana, MaxState.Mana);
+	}
+	else
+	{
+		UIManager->AnnouncementText("Bonefire Lit");
+		bonefire->LitBoneFire();
 	}
 }
 
 void ACharacterPlayableBase::UseItem(ETriggerEvent Trigger)
 {
 	//퀵슬롯에 올려져있는 아이템 바로 사용
-	if (!IsMoveable) return;
-	SetCrouchState(false);
+
+	if (!IsMoveable) return; 
+	switch (Trigger)
+	{
+		case ETriggerEvent::Started:
+		{
+			SetCrouchState(false);
+			if (!IsMoveable) return;
+			FItemData* temp = InventoryComp->GetQuickSlotItemInfo(CurrentQuickSlotNum);
+			if (!temp) return;
+
+			FItemBaseData baseData = ItemInfoManager->GetItemBaseData((*temp).ID);
+			if ((*temp).Count < 1) return;
+
+			if (baseData.ItemType != EItemType::IT_Refillable &&
+				baseData.ItemType != EItemType::IT_Consumable)
+			{
+				return;
+			}
+
+			UAnimMontage* CurrentMontage = AnimInstance->GetCurrentActiveMontage();
+			if (CurrentMontage && (CurrentMontage->GetName() == "UsePotion_Montage" || CurrentMontage->GetName() == "UsePaper")) return;
+			if(!ExcuteItemAffect(baseData.ItemAffectData)) return;
+			ReadyToAction();
+			InventoryComp->ConsumeItem(temp, 1);
+			UpdateCurrentQuickSlotUI();
+		}
+	}
 }
+
+
 void ACharacterPlayableBase::WeaponChange(ETriggerEvent trigger)
 {
 	if (!IsMoveable) return;
@@ -442,96 +645,23 @@ void ACharacterPlayableBase::WeaponChange(ETriggerEvent trigger)
 	{
 	case ETriggerEvent::Started:
 	{
-		EqiupMainSlotWeapon((CurrentWeaponSlot + 1) % 4);
+		EqiupMainSlotWeapon((CurrentWeaponSlotNum + 1) % 3);
 	}
 	break;
 	default: break;
 	}
 }
-
-void ACharacterPlayableBase::ExcutingWeaponBaseAction(EActionInputType actionInputType, ETriggerEvent Trigger, const FInputActionInstance& instance)
+void ACharacterPlayableBase::QuickSlotChange(ETriggerEvent trigger)
 {
-	UDA_ActionData* playMotionData = nullptr;
-	if (Trigger == ETriggerEvent::Started && CurrentPlayActionData) // 재생중인 액션 데이터가 존재할때 파생될수있는 액션이있다면 새로 입력받았을때만 체크
+	switch (trigger)
 	{
-		for (auto& Elem : CurrentPlayActionData->NextAction)
+		case ETriggerEvent::Started:
 		{
-			if (Elem.InputType == actionInputType) //파생 키입력 체크후 실행
-			{
-				playMotionData = Elem.ComboAction;
-			}
+			EqiupQuickSlotItem((CurrentQuickSlotNum + 1) % 3);
 		}
+		break;
+		default:break;
 	}
-	if (!playMotionData) //파생 모션이 없으면 
-	{
-		if (CurrentWeapon) // 현재 장착 무기 기준으로 액션을 가져온다
-		{
-			switch (actionInputType)
-			{
-			case EActionInputType::AIT_WeakAttack:
-				playMotionData = CurrentWeapon->WeakAttackMotion;
-				break;
-			case EActionInputType::AIT_StrongAttack:
-				playMotionData = CurrentWeapon->StrongAttackMotion;
-				break;
-			case EActionInputType::AIT_WeaponAction:
-				playMotionData = CurrentWeapon->WeaponActionMotion;
-				break;
-			case EActionInputType::AIT_WeaponSkill:
-				playMotionData = CurrentWeapon->WeaponSkillMotion;
-				break;
-			case EActionInputType::AIT_Avoid:
-				playMotionData = CurrentWeapon->WeaponAvoidMotion;
-				break;
-			default: break;
-			}
-		}
-	}
-
-	if (!playMotionData) return;
-	if (CurrentState.Stemina <= 0) return;
-	if (CurrentState.Mana < playMotionData->ConsumeMana) return;
-	if (Trigger == ETriggerEvent::Started)
-	{
-		if (!IsAttackable) return;//전투 입력 불가상태에선 새로운 입력만 무시
-		if(CurrentPlayActionData) StopAnimMontage(CurrentPlayActionData->AnimMontage); // 현재 재생중인 모션 정지
-	}
-
-	SetCrouchState(false);
-	if (playMotionData->ConsumeStemina > 0) CanRestoreStemina = false;
-
-	if (playMotionData->AnimMontage)
-	{
-		if (ExcuteActionMotionByType(playMotionData, Trigger, instance))  CurrentPlayActionData = playMotionData;
-	}
-
-	if (CurrentWeapon) // 현재 장착 무기 기준으로 액션을 실행
-	{
-		switch (actionInputType)
-		{
-			case EActionInputType::AIT_WeakAttack:
-				CurrentWeapon->WeakAttackProcess( Trigger, instance);
-				break;
-			case EActionInputType::AIT_StrongAttack:
-				CurrentWeapon->StrongAttackProcess( Trigger, instance);
-				break;
-			case EActionInputType::AIT_WeaponAction:
-				CurrentWeapon->WeaponActionProcess( Trigger, instance);
-				break;
-			case EActionInputType::AIT_WeaponSkill:
-				CurrentWeapon->WeaponSkillProcess( Trigger, instance);
-				break;
-			case EActionInputType::AIT_Avoid:
-				CurrentWeapon->AvoidProcess( Trigger, instance);
-				break;
-			default: break;
-		}
-	}
-}
-
-void ACharacterPlayableBase::CalculateResist()
-{
-
 }
 
 void ACharacterPlayableBase::SetStatusCondition(FStatusCondition condition)
@@ -557,7 +687,7 @@ FStatusCondition* ACharacterPlayableBase::FindStatusByName(FName name)
 
 void ACharacterPlayableBase::CheckStatusCondition(float DeltaTime)
 {
-	for (int i = arrStatusCondition.Num() - 1; i >= 0; --i)
+	for (int32 i = arrStatusCondition.Num() - 1; i >= 0; --i)
 	{
 		FStatusCondition& Effect = arrStatusCondition[i];
 		if (Effect.bIsPermanent) continue;
@@ -570,18 +700,67 @@ void ACharacterPlayableBase::CheckStatusCondition(float DeltaTime)
 void ACharacterPlayableBase::DiedProcess()
 {
 	IsDead = true;
-	UIManager->SetDeadUI();
 	AnimInstance->StopAllMontages(0);
 	PlayAnimMontage(DefaultMotion->DiedMotion, 1);
+	UIManager->AnnouncementFadeOut("You Died");
+
+	FTimerHandle handle;
+	GetWorld()->GetTimerManager().SetTimer(handle, [this]()
+		{
+			GetGameInstance()->GetSubsystem<UManager_Enemy>()->RespawnAll();
+			DropSoul();
+			BonefireManager->RespawnLastBonefire(this);
+			ResetStates();
+			InventoryComp->RefillInventory();
+			UIManager->SetPlayerHP(CurrentState.HP, MaxState.HP);
+			UIManager->SetPlayerSP(CurrentState.Stemina, MaxState.Stemina);
+			UIManager->SetPlayerMP(CurrentState.Mana, MaxState.Mana);
+			UIManager->ShowBossHPUI(false);
+			FItemData temp = InventoryComp->GetQuickSlotItem(CurrentQuickSlotNum);
+			UIManager->ChangeQuickSlot(temp);
+			FTimerHandle handle2;
+			GetWorld()->GetTimerManager().SetTimer(handle2, [this]()
+				{
+					UIManager->InvisibleAnnouncement();
+				},
+				1.0f,
+				false);
+		},
+		3.0f,
+		false);
+
 }
 
 
-void ACharacterPlayableBase::AddWeaponToMainSlot(TSubclassOf<AWeaponDefaultBase> weapon, int slotNum)
+void ACharacterPlayableBase::ModifyCurrentSoul(int32 soul)
 {
-	if (!weapon)return;
-	if (slotNum > 3) return;
-	AWeaponDefaultBase* TempWeapon = GetWorld()->SpawnActor<AWeaponDefaultBase>(weapon, FTransform());
+	CurrentStatus.Soul += soul;
+	if (CurrentStatus.Soul < 0) CurrentStatus.Soul = 0;
+	UIManager->ChangeSoul(CurrentStatus.Soul);
+}
 
+
+void ACharacterPlayableBase::DropSoul()
+{
+	TObjectPtr<ADropItem> TempWeapon = GetWorld()->SpawnActor<ADropItem>(DropSoulBP, FTransform());
+	if (!TempWeapon) return;
+	ADropItem * DropSoul = TempWeapon.Get();
+	DropSoul->SetDropSoul(CurrentStatus.Soul);
+	BonefireManager->SetDropSoul(DropSoul);
+	ModifyCurrentSoul(CurrentStatus.Soul * -1);
+	FVector Loc = GetActorLocation();
+	Loc.Z -= 90;
+	TempWeapon->SetActorLocation(Loc);
+}
+
+void ACharacterPlayableBase::AddWeaponToMainSlot(TSoftClassPtr<AWeaponDefaultBase> weapon, int32 slotNum)
+{
+	TSubclassOf<AWeaponDefaultBase> SpwanBp = weapon.Get(); // 로드 확인
+	if (!SpwanBp) SpwanBp = weapon.LoadSynchronous(); //동기 로드 시도
+	if (!SpwanBp) return; //동기 로드도 실패면 리턴
+	if (slotNum > BaseWeaponSlot) return; //맨손 저장용으로 1개 늘어남
+
+	TObjectPtr<AWeaponDefaultBase> TempWeapon = GetWorld()->SpawnActor<AWeaponDefaultBase>(SpwanBp, FTransform());
 	if (TempWeapon)
 	{
 		if (MainWeaponSlot[slotNum])
@@ -590,62 +769,87 @@ void ACharacterPlayableBase::AddWeaponToMainSlot(TSubclassOf<AWeaponDefaultBase>
 			MainWeaponSlot[slotNum] = nullptr;
 		}
 
-		MainWeaponSlot[slotNum] = TempWeapon;
+		MainWeaponSlot[slotNum] = TempWeapon.Get();
 
-		MainWeaponSlot[slotNum]->SettingWeaponLocation(this);
-		if (slotNum != CurrentWeaponSlot)
+		FItemData* Weapondata = InventoryComp->GetWeaponSlotWeaponInfo(slotNum);
+		if (Weapondata)
+		{
+			MainWeaponSlot[slotNum]->SetItemData(Weapondata);
+		}
+
+		MainWeaponSlot[slotNum]->SettingWeaponData(this);
+		if (slotNum != CurrentWeaponSlotNum)
 		{
 			MainWeaponSlot[slotNum]->SetActiveWeapon(false);
 		}
 		else
 		{
-			EqiupMainSlotWeapon(slotNum);
+			EqiupMainSlotWeapon(slotNum); 
 		}
+		FItemData temp = InventoryComp->GetWeaponSlotWeapon(slotNum);
+		UIManager->ChangeWeaponSlot(temp);
 	}
 }
 
-void ACharacterPlayableBase::EqiupMainSlotWeapon(int slotNum)
+void ACharacterPlayableBase::ResetWeaponSlotInfo(int32 slotNum)
 {
-
-	if (slotNum > 3) return;
-
+	if (slotNum > BaseWeaponSlot-1) return;
 	if (MainWeaponSlot[slotNum])
 	{
-		if (CurrentWeapon)
-		{
-			CurrentWeapon->SetActiveWeapon(false);
-		}
-		MainWeaponSlot[slotNum]->SetActiveWeapon(true);
-		CurrentWeaponSlot = slotNum;
-		CurrentWeapon = MainWeaponSlot[slotNum];
-
-
-
-		if (!CurrentWeapon->bIsTwoHanded)
-		{
-			AnimInstance->SetIsTwoHandedWeapon(false);
-		}
-
-		if (CurrentWeapon->IdleMotion)  AnimInstance->WeaponIdleMotion = CurrentWeapon->IdleMotion;
-		if (CurrentWeapon->WalkMotion)	AnimInstance->WeaponWalkMotion = CurrentWeapon->WalkMotion;
-		if (CurrentWeapon->RunMotion)	AnimInstance->WeaponRunMotion = CurrentWeapon->RunMotion;
+		MainWeaponSlot[slotNum]->Destroy();
+		MainWeaponSlot[slotNum] = nullptr;
+		if(slotNum == CurrentWeaponSlotNum) EqiupMainSlotWeapon(slotNum);
 	}
 }
 
+void ACharacterPlayableBase::EqiupQuickSlotItem(int32 slotNum)
+{
+	CurrentQuickSlotNum = slotNum;
+	UpdateCurrentQuickSlotUI();
+}
+void ACharacterPlayableBase::EqiupMainSlotWeapon(int32 slotNum)
+{
+	if (slotNum > BaseWeaponSlot-1) return;
+	CurrentWeaponSlotNum = slotNum; 
+	if (CurrentWeapon) CurrentWeapon->SetActiveWeapon(false);
 
-void ACharacterPlayableBase::ModifyCurrentHealth(int param)
+	if (IsValid(MainWeaponSlot[CurrentWeaponSlotNum]))
+	{
+		MainWeaponSlot[CurrentWeaponSlotNum]->SetActiveWeapon(true);
+		CurrentWeapon = MainWeaponSlot[CurrentWeaponSlotNum];
+	}
+	else
+	{
+		CurrentWeapon = MainWeaponSlot[3];
+		CurrentWeapon->SetActiveWeapon(true);
+	}
+
+	if (!CurrentWeapon->bIsTwoHanded)
+	{
+		AnimInstance->SetIsTwoHandedWeapon(false);
+	}
+	if (CurrentWeapon->IdleMotion)  AnimInstance->WeaponIdleMotion = CurrentWeapon->IdleMotion;
+	if (CurrentWeapon->WalkMotion)	AnimInstance->WeaponWalkMotion = CurrentWeapon->WalkMotion;
+	if (CurrentWeapon->RunMotion)	AnimInstance->WeaponRunMotion = CurrentWeapon->RunMotion;
+
+	FItemData temp = InventoryComp->GetWeaponSlotWeapon(CurrentWeaponSlotNum);
+	UIManager->ChangeWeaponSlot(temp);
+}
+
+
+void ACharacterPlayableBase::ModifyCurrentHealth(int32 param)
 {
 	Super::ModifyCurrentHealth(param);
 	UIManager->SetPlayerHP(CurrentState.HP, MaxState.HP);
 	
 }
-void ACharacterPlayableBase::ModifyCurrentStemina(int stemina)
+void ACharacterPlayableBase::ModifyCurrentStemina(int32 stemina )
 {
 	Super::ModifyCurrentStemina(stemina);
 	UIManager->SetPlayerSP(CurrentState.Stemina, MaxState.Stemina);
 
 }
-void ACharacterPlayableBase::ModifyCurrentMana(int mana)
+void ACharacterPlayableBase::ModifyCurrentMana(int32 mana)
 {
 	Super::ModifyCurrentMana(mana);
 	if (GetWorld()->GetFirstPlayerController()->GetPawn() == this)
@@ -666,7 +870,4 @@ void ACharacterPlayableBase::UpdateStatus()
 	UIManager->SetPlayerHP(CurrentState.HP, MaxState.HP);
 	UIManager->SetPlayerMP(CurrentState.Mana, MaxState.Mana);
 	UIManager->SetPlayerSP(CurrentState.Stemina, MaxState.Stemina);
-
-	UE_LOG(LogTemp, Warning, TEXT("업데이트 스테이트 %d"), MaxState.Stemina);
-
 }

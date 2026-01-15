@@ -53,6 +53,7 @@ public:
 	EDecisionShapeType DecisionShape;
 	UPROPERTY(EditAnywhere,BlueprintReadWrite, Category = "Attack")
 	EAttackDecisionType DecisionType;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite , Category = "Attack" , meta = (EditCondition = "DecisionShape == EDecisionShapeType::AST_Sphere || DecisionShape == EDecisionShapeType::AST_Capsule",EditConditionHides))
 	float Radius;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attack", meta = (EditCondition = "DecisionShape == EDecisionShapeType::AST_Capsule", EditConditionHides))
@@ -66,7 +67,7 @@ public:
 
 	FCollisionShape DecisionCollisionShape;
 
-	void PerformSweep(int Index, FCollisionShape Collision);
+	void PerformSweep(int32 Index, FCollisionShape Collision);
 	void PerformAreaOnce(USceneComponent* DecisionLoc, FCollisionShape Collision);
 	void PerformAreaTick(USceneComponent* DecisionLoc, FCollisionShape Collision);
 

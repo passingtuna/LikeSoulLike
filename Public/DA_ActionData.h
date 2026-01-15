@@ -17,7 +17,23 @@ class LIKESOULLIKE_API UDA_ActionData : public UDataAsset
 public:
 	UPROPERTY(EditAnywhere,BlueprintReadWrite)
 	EActionType ActionType;
-	
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Charge", meta = (EditCondition = "ActionType == EActionType::AT_Charge", EditConditionHides))
+	int32 MaxChargeStep = 0;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Charge", meta = (EditCondition = "ActionType == EActionType::AT_Charge", EditConditionHides))
+	int32 ChargeStepInterval = 1;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Charge", meta = (EditCondition = "ActionType == EActionType::AT_Charge", EditConditionHides))
+	UCurveFloat* ChargeMotionMutiplyCurve;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool IsGuardable = true;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite) 
+	bool  IsParryable = true;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool  IsAvoidable = true;
+
+
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	UAnimMontage* AnimMontage;
 
@@ -28,6 +44,8 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float	MotionDamageMutiply = 0;
+
+
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<FComboActionData> NextAction;

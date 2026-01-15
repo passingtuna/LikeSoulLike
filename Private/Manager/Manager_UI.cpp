@@ -16,7 +16,9 @@
 #include "CharacterPlayableBase.h"
 #include "SoulLikeController.h"
 #include "UW_StackableUIBase.h"
-
+#include "UW_QuickSlot.h"
+#include "UW_BoneFireMenu.h"
+#include "UW_BonefireWarp.h"
 
 void UManager_UI::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -29,20 +31,50 @@ void UManager_UI::Initialize(FSubsystemCollectionBase& Collection)
     {
         CharStateWidgetBP = GameUIDataAsset->CharStateWidgetBp;
         BossHPWidgetBP = GameUIDataAsset->BossHPWidgetBP;
-        YouDiedWidgetBp = GameUIDataAsset->YouDiedWidgetBp;
-        StatusWidgetBP = GameUIDataAsset->StatusWidgetBP;
+        AnnouncementWidgetBp = GameUIDataAsset->AnnouncementWidgetBp;
+
         UserMenuWidgetBP = GameUIDataAsset->UserMenuWidgetBP;
+        StatusWidgetBP = GameUIDataAsset->StatusWidgetBP;
+
+
+       QuickSlotWidgetBP = GameUIDataAsset->QuickSlotWidgetBP;
+       InventoryWidgetBP = GameUIDataAsset->InventoryWidgetBP;
+       EquipmentWidgetBP = GameUIDataAsset->EquipmentWidgetBP;
+
+       StorageWidgetBP = GameUIDataAsset->StorageWidgetBP;
+       BonfieMenuWidgetBP = GameUIDataAsset->BonfieMenuWidgetBP;
+
+       BonfieWarpMenuWidgetBP = GameUIDataAsset->BonfieWarpMenuWidgetBP;
+
+       AimWidgetBP = GameUIDataAsset->AimWidgetBP;
     }
 }
 
 void UManager_UI::InitUI(ACharacterPlayableBase* Character)
 {
+    PlayerCharacter = Character;
+    PlayerController = PlayerCharacter->GetPlayerController();
+
     if (CharStateWidgetBP)
     {
         CharStateWidget = CreateWidget<UUW_CharacterState>(GetWorld(), CharStateWidgetBP);
         CharStateWidget->AddToViewport(0);
         CharStateWidget->SetVisibility(ESlateVisibility::Visible);
     }
+    if (QuickSlotWidgetBP)
+    {
+        QuickSlotWidget = CreateWidget<UUW_QuickSlot>(GetWorld(), QuickSlotWidgetBP);
+        QuickSlotWidget->AddToViewport(0);
+        QuickSlotWidget->SetVisibility(ESlateVisibility::Visible);
+        QuickSlotWidget->InvisibleItemGetText();
+    }
+    if (AimWidgetBP)
+    {
+        AimWidget = CreateWidget<UUserWidget>(GetWorld(), AimWidgetBP);
+        AimWidget->AddToViewport(0);
+        AimWidget->SetVisibility(ESlateVisibility::Collapsed);
+    }
+
 
     if (BossHPWidgetBP)
     {
@@ -50,21 +82,13 @@ void UManager_UI::InitUI(ACharacterPlayableBase* Character)
         BossHPWidget->AddToViewport(0);
         BossHPWidget->SetVisibility(ESlateVisibility::Collapsed);
     }
-
-    if (YouDiedWidgetBp)
+    if (AnnouncementWidgetBp)
     {
-        YouDiedWidget = CreateWidget<UUW_YouDied>(GetWorld(), YouDiedWidgetBp);
-        YouDiedWidget->AddToViewport(100);
-        YouDiedWidget->SetVisibility(ESlateVisibility::Collapsed);
+        AnnouncementWidget = CreateWidget<UUW_Announcement>(GetWorld(), AnnouncementWidgetBp);
+        AnnouncementWidget->AddToViewport(100);
+        AnnouncementWidget->SetVisibility(ESlateVisibility::Collapsed);
     }
 
-    if (StatusWidgetBP)
-    {
-        StatusWidget = CreateWidget<UUW_StatusWindow>(GetWorld(), StatusWidgetBP);
-        StatusWidget->AddToViewport(50);
-        StatusWidget->SetVisibility(ESlateVisibility::Collapsed);
-        StatusWidget->OnRequestClose.BindUObject( this, &UManager_UI::PopUI);
-    }
 
     if (UserMenuWidgetBP)
     {
@@ -74,11 +98,59 @@ void UManager_UI::InitUI(ACharacterPlayableBase* Character)
         UserMenuWidget->OnRequestClose.BindUObject(this, &UManager_UI::PopUI);
         UserMenuWidget->InitUserMenu();
     }
+    if (StatusWidgetBP)
+    {
+        StatusWidget = CreateWidget<UUW_StatusWindow>(GetWorld(), StatusWidgetBP);
+        StatusWidget->AddToViewport(50);
+        StatusWidget->SetVisibility(ESlateVisibility::Collapsed);
+        StatusWidget->OnRequestClose.BindUObject(this, &UManager_UI::PopUI);
+    }
+    if (InventoryWidgetBP)
+    {
+        InventoryWidget = CreateWidget<UUW_Inventory>(GetWorld(), InventoryWidgetBP);
+        InventoryWidget->AddToViewport(50);
+        InventoryWidget->InitInventory(PlayerCharacter->GetInventoryComponent());
+        InventoryWidget->SetVisibility(ESlateVisibility::Collapsed);
+        InventoryWidget->OnRequestClose.BindUObject(this, &UManager_UI::PopUI);
+    }
+    if (EquipmentWidgetBP)
+    {
+        EquipmentWidget = CreateWidget<UUW_Equipment>(GetWorld(), EquipmentWidgetBP);
+        EquipmentWidget->AddToViewport(50);
+        EquipmentWidget->InitEquipment(PlayerCharacter);
+        EquipmentWidget->SetVisibility(ESlateVisibility::Collapsed);
+        EquipmentWidget->OnRequestClose.BindUObject(this, &UManager_UI::PopUI);
+    }
 
-    PlayerCharacter = Character;
-    PlayerController = PlayerCharacter->GetPlayerController();
+
+    if (StorageWidgetBP)
+    {
+        StorageWidget = CreateWidget<UUW_Storage>(GetWorld(), StorageWidgetBP);
+        StorageWidget->AddToViewport(50);
+        StorageWidget->InitStorage(PlayerCharacter);
+        StorageWidget->SetVisibility(ESlateVisibility::Collapsed);
+        StorageWidget->OnRequestClose.BindUObject(this, &UManager_UI::PopUI);
+    }
+
+    if (BonfieMenuWidgetBP)
+    {
+        BonfieMenuWidget = CreateWidget<UUW_BoneFireMenu>(GetWorld(), BonfieMenuWidgetBP);
+        BonfieMenuWidget->AddToViewport(50);
+        BonfieMenuWidget->InitBonefireMenu();
+        BonfieMenuWidget->SetVisibility(ESlateVisibility::Collapsed);
+        BonfieMenuWidget->OnRequestClose.BindUObject(this, &UManager_UI::PopUI);
+    }
+
+    if (BonfieWarpMenuWidgetBP)
+    {
+        BonfieWarpWidget = CreateWidget<UUW_BonefireWarp>(GetWorld(), BonfieWarpMenuWidgetBP);
+        BonfieWarpWidget->AddToViewport(50);
+        BonfieWarpWidget->InitBonefireWarpWindow(PlayerCharacter);
+        BonfieWarpWidget->SetVisibility(ESlateVisibility::Collapsed);
+        BonfieWarpWidget->OnRequestClose.BindUObject(this, &UManager_UI::PopUI);
+    }
+
 }
-
 
 void UManager_UI::ShowUIByName(FName uiName)
 {
@@ -90,13 +162,48 @@ void UManager_UI::ShowUIByName(FName uiName)
     {
         PushUI(StatusWidget);
     }
+    else if (uiName == "Equipment")
+    {
+        PushUI(EquipmentWidget);
+    }
+    else if (uiName == "Inventory")
+    {
+        PushUI(InventoryWidget);
+    }
+    else if (uiName == "Bonefire")
+    {
+        PushUI(BonfieMenuWidget);
+    }
+    else if (uiName == "Storage")
+    {
+        PushUI(StorageWidget);
+    }
+    else if (uiName == "BonefireWarp")
+    {
+        PushUI(BonfieWarpWidget);
+    }
 }
 void UManager_UI::UserMenuKeyAction()
 {
     PushUI(UserMenuWidget);
 }
+void UManager_UI::OpenBonefireMenu(FName Name)
+{
+    BonfieMenuWidget->SetBonefireName(Name);
+    ShowUIByName("Bonefire");
+}
 
-
+void UManager_UI::ShowAimWidget(bool On)
+{
+    if (On)
+    {
+        AimWidget->SetVisibility(ESlateVisibility::Visible);
+    }
+    else
+    {
+        AimWidget->SetVisibility(ESlateVisibility::Collapsed);
+    }
+}
 void UManager_UI::TakeControlToUI(UUW_StackableUIBase* FocusWidget)
 {
     if (PlayerController)
@@ -155,19 +262,61 @@ void UManager_UI::PopUI()
         ReturnControlToPlayer();
     }
 }
+void UManager_UI::ClearUI()
+{
+    if (UIStack.Num() == 0) return;
+    UE_LOG(LogTemp, Warning, TEXT("클리어 UI %d"), UIStack.Num());
+    int StackNum = UIStack.Num();
+    for (int i = 0; i < StackNum; ++i)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("클리어 UI %d"), i);
+        PopUI();
+    }
+
+}
 
 UUW_StackableUIBase* UManager_UI::GetTopUI()
 {
     return UIStack.Num() > 0 ? UIStack.Last() : nullptr;
 }
-
-void UManager_UI::SetDeadUI()
+void UManager_UI::AnnouncementFadeOut(FString Text)
 {
-    if (YouDiedWidget)
+    if (AnnouncementWidget)
     {
-        YouDiedWidget->SetVisibility(ESlateVisibility::Visible);
+        AnnouncementWidget->SetVisibility(ESlateVisibility::Visible);
+        AnnouncementWidget->SetText(Text);
+        AnnouncementWidget->SetFadeOut();
     }
 }
+void UManager_UI::AnnouncementFadeIn(FString Text)
+{
+    if (AnnouncementWidget)
+    {
+        AnnouncementWidget->SetVisibility(ESlateVisibility::Visible);
+        AnnouncementWidget->SetText(Text);
+        AnnouncementWidget->SetFadeIn();
+    }
+}
+
+void UManager_UI::AnnouncementText(FString Text)
+{
+    if (AnnouncementWidget)
+    {
+        AnnouncementWidget->SetVisibility(ESlateVisibility::Visible);
+        AnnouncementWidget->SetText(Text);
+        GetWorld()->GetTimerManager().SetTimer(AnounceTimer, [this]() {AnnouncementWidget->SetVisibility(ESlateVisibility::Collapsed); }, 2, false);
+    }
+}
+
+void UManager_UI::InvisibleAnnouncement()
+{
+    if (AnnouncementWidget)
+    {
+        AnnouncementWidget->ResetAnnouncement();
+        AnnouncementWidget->SetVisibility(ESlateVisibility::Collapsed);
+    }
+}
+
 
 void UManager_UI::SetPlayerHP(float CurrentHP, float MaxHP)
 {
@@ -182,10 +331,23 @@ void UManager_UI::SetPlayerMP(float CurrentMP, float MaxMP)
     CharStateWidget->MP_GaugeWidget->SetPercent(CurrentMP / MaxMP);
 }
 
+void UManager_UI::ShowBossHPUI(bool On)
+{
+    On ? BossHPWidget->SetVisibility(ESlateVisibility::Visible) : BossHPWidget->SetVisibility(ESlateVisibility::Collapsed);
+}
+void UManager_UI::SetBossHP(float CurrentHP, float MaxHP)
+{
+    BossHPWidget->HP_GaugeWidget->SetPercent(CurrentHP / MaxHP);
+}
+
+void UManager_UI::SetBossName(FString Name)
+{ 
+    BossHPWidget->Boss_Name->SetText(FText::FromString(Name));
+}
+
 void UManager_UI::SetPlayerMaxHP(float MaxHP)
 {
     float NewWidth = MaxHP;
-	UE_LOG(LogTemp, Warning, TEXT("New HP Gauge Width: %f"), NewWidth);
     if (UCanvasPanelSlot* Slot = Cast<UCanvasPanelSlot>(CharStateWidget->HP_GaugeWidget->Slot))
     {
         Slot->SetSize(FVector2D(NewWidth, Slot->GetSize().Y));
@@ -194,7 +356,6 @@ void UManager_UI::SetPlayerMaxHP(float MaxHP)
 void UManager_UI::SetPlayerMaxSP(float MaxSP)
 {
     float NewWidth = MaxSP * 2 ;
-	UE_LOG(LogTemp, Warning, TEXT("New SP Gauge Width: %f"), NewWidth);
     if (UCanvasPanelSlot* Slot = Cast<UCanvasPanelSlot>(CharStateWidget->SP_GaugeWidget->Slot))
     {
         Slot->SetSize(FVector2D(NewWidth, Slot->GetSize().Y));
@@ -203,9 +364,26 @@ void UManager_UI::SetPlayerMaxSP(float MaxSP)
 void UManager_UI::SetPlayerMaxMP(float MaxMP)
 {
     float NewWidth = MaxMP;
-	UE_LOG(LogTemp, Warning, TEXT("New MP Gauge Width: %f"), NewWidth);
     if (UCanvasPanelSlot* Slot = Cast<UCanvasPanelSlot>(CharStateWidget->MP_GaugeWidget->Slot))
     {
         Slot->SetSize(FVector2D(NewWidth, Slot->GetSize().Y));
     }
+}
+
+
+void UManager_UI::ChangeWeaponSlot(FItemData& curWeapon)
+{
+    QuickSlotWidget->SetWeaponSlot(curWeapon);
+}
+void UManager_UI::ChangeQuickSlot(FItemData& curItem)
+{
+    QuickSlotWidget->SetQuickSlot(curItem);
+}
+void UManager_UI::ChangeSoul(int32 soul)
+{
+    QuickSlotWidget->SetSoul(soul);
+}
+void UManager_UI::ShowGetItemUI(FItemData& curItem, FText Text)
+{
+    QuickSlotWidget->VisibleItemGetText(curItem, Text);
 }

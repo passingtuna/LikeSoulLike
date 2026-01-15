@@ -12,7 +12,9 @@
 class UAnimInstanceBow;
 class UControlRigComponent;
 class AProjectile_Default;
-class UManager_Projectile;
+class UManager_Projectile;// Forward
+class USplineComponent;
+class USplineMeshComponent;
 UCLASS()
 class LIKESOULLIKE_API AWeapon_Bow : public AWeaponDefaultBase
 {
@@ -20,13 +22,13 @@ class LIKESOULLIKE_API AWeapon_Bow : public AWeaponDefaultBase
 public:
 
 	virtual void BeginPlay() override;
-	virtual void SettingWeaponLocation(ACharacterDefaultBase* Character) override;
+	virtual void SettingWeaponData(ACharacterDefaultBase* Character) override;
 	virtual void ExcueteWeaponEvent(EActionInputType type) override;
 	virtual void Tick(float DeltaTime) override;
-	virtual void StrongAttackProcess( ETriggerEvent Trigger, const FInputActionInstance& instance);
-	virtual void WeaponSkillProcess(ETriggerEvent Trigger, const FInputActionInstance& instance);
-	virtual void WeaponActionProcess( ETriggerEvent Trigger, const FInputActionInstance& instance);
-	virtual void AvoidProcess( ETriggerEvent Trigger, const FInputActionInstance& instance);
+	virtual void StrongAttackProcess( ETriggerEvent Trigger)override;
+	virtual void WeaponSkillProcess(ETriggerEvent Trigger)override;
+	virtual void WeaponActionProcess( ETriggerEvent Trigger)override;
+	virtual void AvoidProcess( ETriggerEvent Trigger)override;
 
 	UManager_Projectile* ProjectileManager;
 	USkeletalMeshComponent* BowMesh;
@@ -35,7 +37,6 @@ public:
 	USceneComponent*  ArrowPointLoc;
 	USceneComponent* LuanchPos;
 
-
 	TArray <UStaticMeshComponent *> AdditionalArrow;
 	bool IsLoadingBow;
 	bool MultiShot;
@@ -43,12 +44,25 @@ public:
 
 	UAnimInstanceBow* BowAnimInstance;
 	void ExcuteWeakAttackEvent();
-	void ExcuteStrongAttackEvent();
-	void ExcuteWeaponActionEvent();
-
 	void ArrowLoaded();
 	void ArrowFired();
 
+	void CalculatePredictProjectile();
+
 	UPROPERTY(EditAnywhere,BlueprintReadWrite)
 	TSubclassOf<AProjectile_Default> ArrowType;
+
+
+
+	FTimerHandle AimDrawTimer;
+	USplineComponent* SplineComp;
+	TArray<USplineMeshComponent*> SplineMeshThrows;
+	UPROPERTY(EditDefaultsOnly, Category = "Trajectory")
+	UStaticMesh* TrajectoryMesh;
+	UPROPERTY(EditDefaultsOnly, Category = "Trajectory")
+	UMaterialInterface* TrajectoryMaterial;
+	UPROPERTY(EditDefaultsOnly, Category = "Trajectory")
+	float TrajectoryRadius = 5.f;
+	UPROPERTY(EditDefaultsOnly, Category = "Trajectory")
+	float TrajectorySimTime = 3.f;
 };

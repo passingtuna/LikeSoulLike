@@ -40,7 +40,8 @@ void ASoulLikeController::BindActionWithIAContainer()
 		EhancedIputComponent->BindAction(Action, ETriggerEvent::Completed,	this, &ASoulLikeController::OnActionCompleted);
 	}
 }
-//내용은 똑같은데 분리하지 않으면 특정 트리거가 씹히는 엔진버그가 있어서 분리함
+
+//트리거 별함수 내용은 똑같은데 분리하지 않으면 특정 트리거가 씹히는 엔진버그가 있어서 분리
 void ASoulLikeController::OnActionStarted(const FInputActionInstance& instance)
 {
 	ACharacterPlayableBase* possesedChar = Cast<ACharacterPlayableBase>(GetCharacter());
@@ -49,14 +50,12 @@ void ASoulLikeController::OnActionStarted(const FInputActionInstance& instance)
 	FName ActionName = IAContainer_Move->FindNameByAction(SourceAction);
 	if (ActionName == "NULL") return;
 	FInputActionValue Value = instance.GetValue();
-	//ETriggerEvent TriggerEvent = instance.GetTriggerEvent();
-
-	if (!SourceAction) return;
 	if (possesedChar)
 	{
 		possesedChar->HandleInput(ActionName, ETriggerEvent::Started, instance);
 	}
 }
+
 void ASoulLikeController::OnActionTriggered(const FInputActionInstance& instance)
 {
 	ACharacterPlayableBase* possesedChar = Cast<ACharacterPlayableBase>(GetCharacter());
@@ -66,7 +65,6 @@ void ASoulLikeController::OnActionTriggered(const FInputActionInstance& instance
 	if (ActionName == "NULL") return;
 	FInputActionValue Value = instance.GetValue();
 
-	if (!SourceAction) return;
 	if (possesedChar)
 	{
 		possesedChar->HandleInput(ActionName, ETriggerEvent::Triggered, instance);
@@ -80,8 +78,6 @@ void ASoulLikeController::OnActionCompleted(const FInputActionInstance& instance
 	if (!SourceAction) return;
 	FName ActionName = IAContainer_Move->FindNameByAction(SourceAction);
 	if (ActionName == "NULL") return;
-
-	if (!SourceAction) return;
 	if (possesedChar)
 	{
 		possesedChar->HandleInput(ActionName, ETriggerEvent::Completed, instance);

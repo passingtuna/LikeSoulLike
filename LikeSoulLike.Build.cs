@@ -8,7 +8,8 @@ public class LikeSoulLike : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", "ControlRig", "Slate", "SlateCore" });
+		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", "ControlRig", "Slate", 
+			"SlateCore" , "NavigationSystem", "AIModule", "Niagara"});
 
 		PrivateDependencyModuleNames.AddRange(new string[] {  });
 

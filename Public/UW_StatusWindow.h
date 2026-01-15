@@ -55,6 +55,7 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void ClickedCancleButton(); 
 	void OnStatusEdited();
+	int32 CalculateCumulativeSoul(int32 FromLevel, int32 ToLevel);
 	virtual void NativeConstruct() override;
 
 };
@@ -69,13 +70,13 @@ public:
 	UPROPERTY(meta = (BindWidget))
 	UTextBlock* InfoNumber;
 
-	void SettingEditingBar(FString Name, int statenum)
+	void SettingEditingBar(FString Name, int32 statenum)
 	{
 		InfoName->SetText(FText::FromString(Name));
 		SetStatusNum(statenum);
 
 	};
-	void SetStatusNum(int Num)
+	void SetStatusNum(int32 Num)
 	{
 		FString temp = FString::FromInt(Num);
 		InfoNumber->SetText(FText::FromString(temp));
@@ -86,7 +87,7 @@ class LIKESOULLIKE_API UUW_StatusWindow_StatusEditBar : public UUserWidget
 {
 	GENERATED_BODY()
 public:
-	int StatusNum;
+	int32 StatusNum;
 	FOnEditBarChanged OnEditBarChanged;
 
 	UUW_StatusWindow_StatusEditBox* EditBox;
@@ -96,14 +97,14 @@ public:
 	UTextBlock* StatusNumber;
 	UButton* AddButton;
 	UButton* Minusutton;
-	int InitStateNum;
+	int32 InitStateNum;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FString StrStatusName;
 
 	bool IsEdited() { return (InitStateNum != StatusNum ? true : false); };
 
-	void SettingEditingBar(UUW_StatusWindow_StatusEditBox* editBox , FString Name, int statenum)
+	void SettingEditingBar(UUW_StatusWindow_StatusEditBox* editBox , FString Name, int32 statenum)
 	{
 		EditBox = editBox;
 		StatusName->SetText(FText::FromString(Name));
@@ -111,13 +112,13 @@ public:
 		InitStateNum = statenum;
 	};
 
-	void SetStatusNum(int Num)
+	void SetStatusNum(int32 Num)
 	{
 		StatusNum = Num;
 		FString temp = FString::FromInt(Num);
 		StatusNumber->SetText(FText::FromString(temp));
 	};
-	int GetStatusNum() { return StatusNum; };
+	int32 GetStatusNum() { return StatusNum; };
 
 	UFUNCTION(Blueprintcallable)
 	void ClickedAddButton();
@@ -130,10 +131,10 @@ class LIKESOULLIKE_API UUW_StatusWindow_WeaponEditBar : public UUserWidget
 {
 	GENERATED_BODY()
 public:
-	int StatusNum;
-	int InitStateNum;
-	int infusionType;
-	int initInfusion;
+	int32 StatusNum;
+	int32 InitStateNum;
+	int32 infusionType;
+	int32 initInfusion;
 	FOnEditBarChanged OnEditBarChanged;
 	UPROPERTY(meta = (BindWidget))
 	UComboBoxString* InfusionInfo;
@@ -141,14 +142,15 @@ public:
 	UTextBlock* StatusNumber;
 	UButton* AddButton;
 	UButton* Minusutton;
+
 	virtual void NativeConstruct() override;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FString StrStatusName;
 
 	bool IsEdited() { return ((InitStateNum != StatusNum || initInfusion != infusionType)? true : false); };
 
-	int GetUpgrade() { return StatusNum; };
-	int GetInfusion() { return InfusionInfo->GetSelectedIndex(); };
+	int32 GetUpgrade() { return StatusNum; };
+	int32 GetInfusion() { return InfusionInfo->GetSelectedIndex(); };
 	UFUNCTION()
 	void UpdatedInfusion(FString SelectedItem, ESelectInfo::Type SelectionType) 
 	{
@@ -156,16 +158,16 @@ public:
 	};
 	void SetInfusion(EWeaponInfusionType Infusion)
 	{
-		infusionType = (int)Infusion;
+		infusionType = (int32)Infusion;
 		InfusionInfo->SetSelectedIndex(infusionType);
 	};
-	void SetUpgrade(int temp) 
+	void SetUpgrade(int32 temp)
 	{ 
 		StatusNum = temp;
 		SetStatusNum(StatusNum);
 	};
 
-	void SetStatusNum(int Num)
+	void SetStatusNum(int32 Num)
 	{
 		FString tempstr = FString::FromInt(Num);
 		StatusNumber->SetText(FText::FromString(tempstr));
@@ -201,14 +203,22 @@ public:
 	UTextBlock* LevelText;
 	UPROPERTY(meta = (BindWidget))
 	UTextBlock* NextRequireSoul;
-	int Level;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* CumulativeSoul;
+	
+	int32 CumulativeSoulNum;
+	bool DeativateButton;
+
+	int32 Level;
 	virtual void NativeConstruct()override;
-	void ModifyLevel(int num) 
+	void ModifyLevel(int32 num)
 	{ 
 		Level += num;
 		FString temp = FString::FromInt(Level);
 		LevelText->SetText(FText::FromString(temp));
 	};
+
 
 	UPROPERTY(meta = (BindWidget))
 	UUW_StatusWindow_StatusEditBar* HealthEditBar;
@@ -262,10 +272,16 @@ public:
 		FString temp = FString::FromInt(Info.Level);
 		LevelText->SetText(FText::FromString(temp));
 	};
-	void SetRequireSoul(int nextRequireSoul)
+	void SetRequireSoul(int32 nextRequireSoul)
 	{
 		FString temp = FString::FromInt(nextRequireSoul);
 		NextRequireSoul->SetText(FText::FromString(temp));
+	};
+
+	void UpdateCumulativeSoul()
+	{
+		FString temp = FString::FromInt(CumulativeSoulNum);
+		CumulativeSoul->SetText(FText::FromString(temp));
 	};
 
 	void UpdateStatusEditBox(FPlayerStatus Info)
@@ -305,7 +321,7 @@ class LIKESOULLIKE_API UUW_StatusWindow_WeaponEditBox : public UUserWidget
 {
 	GENERATED_BODY()
 public:
-	int StatusNum;
+	int32 StatusNum;
 	UPROPERTY(meta = (BindWidget))
 	UUW_StatusWindow_WeaponEditBar* WeaponEditSlot1;
 	UPROPERTY(meta = (BindWidget))
@@ -329,7 +345,7 @@ public:
 		OnEditBoxChanged.Broadcast();
 	}
 
-	void SetStatusBox(int slot ,int upgrade,EWeaponInfusionType infusion)
+	void SetStatusBox(int32 slot , int32 upgrade,EWeaponInfusionType infusion)
 	{
 		switch (slot)
 		{
@@ -348,7 +364,7 @@ public:
 		}
 	};
 
-	bool GetEditedSlot(int checkslot)
+	bool GetEditedSlot(int32 checkslot)
 	{
 		switch (checkslot)
 		{
@@ -367,7 +383,7 @@ public:
 		}
 	}
 
-	int GetEditedUpgrade(int checkslot)
+	int32 GetEditedUpgrade(int32 checkslot)
 	{
 		switch (checkslot)
 		{
@@ -385,7 +401,7 @@ public:
 			break;
 		}
 	}
-	int GetEditedInfusion(int checkslot)
+	int32 GetEditedInfusion(int32 checkslot)
 	{
 		switch (checkslot)
 		{
@@ -409,7 +425,7 @@ class LIKESOULLIKE_API UUW_StatusWindow_WeaponInfoBox : public UUserWidget
 {
 	GENERATED_BODY()
 public:
-	int SlotNum;
+	int32 SlotNum;
 	UPROPERTY(meta = (BindWidget))
 	UUW_StatusWindow_CalculatInfoBar* PhysicsDamageBox;
 	UPROPERTY(meta = (BindWidget))
@@ -422,7 +438,7 @@ public:
 	UUW_StatusWindow_CalculatInfoBar* FireDamageBox;
 	UPROPERTY(meta = (BindWidget))
 	UTextBlock* SlotNumBlock;
-	void SetSlotNum(int slotNum)
+	void SetSlotNum(int32 slotNum)
 	{
 		FString temp = FString::FromInt(slotNum);
 		SlotNumBlock->SetText(FText::FromString(temp));

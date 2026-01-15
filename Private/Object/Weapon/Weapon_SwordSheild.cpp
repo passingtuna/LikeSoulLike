@@ -4,30 +4,34 @@
 #include "Weapon_SwordSheild.h"
 #include "CharacterDefaultBase.h"
 
+void AWeapon_SwordSheild::SettingWeaponData(ACharacterDefaultBase * Character)
+{
+    Super::SettingWeaponData(Character);
+
+    SwordMesh = mapWeaponMesh.Find("Sword")->Mesh;
+}
+
 
 void AWeapon_SwordSheild::ExcueteWeaponEvent(EActionInputType type)
 {
-
-    UPrimitiveComponent* tempComp;
-    tempComp = mapWeaponMesh.Find("Sword")->Mesh;
     switch (EventNum)
     {
     case 1:
     {
-        if (tempComp)
+        if (SwordMesh)
         {
-            (tempComp)->AttachToComponent(OwnerCharacter->GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, "RightHandSocket");
-            (tempComp)->SetRelativeRotation(FRotator(0, 0, 90));
+            SwordMesh->AttachToComponent(OwnerCharacter->GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, "RightHandSocket");
+            SwordMesh->SetRelativeRotation(FRotator(0, 0, 90));
         }
     }
     break;
     case 2:
     {
-        if (tempComp)
+        if (SwordMesh)
         {
-            (tempComp)->AttachToComponent(OwnerCharacter->GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, "LeftArmSocket");
-            (tempComp)->SetRelativeLocation(FVector(0, 0, 30));
-            (tempComp)->SetRelativeRotation(FRotator(0, 90, 90));
+            SwordMesh->AttachToComponent(OwnerCharacter->GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, "LeftArmSocket");
+            SwordMesh->SetRelativeLocation(FVector(0, 0, 30));
+            SwordMesh->SetRelativeRotation(FRotator(0, 90, 90));
         }
 
     }
@@ -35,28 +39,28 @@ void AWeapon_SwordSheild::ExcueteWeaponEvent(EActionInputType type)
 
     case 3:
     {
-        if (tempComp)
+        if (SwordMesh)
         {
-            (tempComp)->SetRelativeLocation(FVector(0, 0, 60));
+            SwordMesh->SetRelativeLocation(FVector(0, 0, 60));
         }
     }
     break;
 
     case 4:
     {
-        if (tempComp)
+        if (SwordMesh)
         {
-            (tempComp)->SetRelativeLocation(FVector(0, 0, 0));
+            SwordMesh->SetRelativeLocation(FVector(0, 0, 0));
         }
     }
     break;
     case 5:
     {
-        if (tempComp)
+        if (SwordMesh)
         {
-            (tempComp)->AttachToComponent(OwnerCharacter->GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, "RightHandSocket");
-            (tempComp)->SetRelativeLocation(FVector(-7, 2, -3));
-            (tempComp)->SetRelativeRotation(FRotator(0, 70, -90));
+            SwordMesh->AttachToComponent(OwnerCharacter->GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, "RightHandSocket");
+            SwordMesh->SetRelativeLocation(FVector(-7, 2, -3));
+            SwordMesh->SetRelativeRotation(FRotator(0, 70, -90));
         }
     }
     break;
@@ -66,26 +70,7 @@ void AWeapon_SwordSheild::ExcueteWeaponEvent(EActionInputType type)
     }
 }
 
-void AWeapon_SwordSheild::StrongAttackProcess(ETriggerEvent Trigger, const FInputActionInstance& instance)
+void AWeapon_SwordSheild::StrongAttackProcess(ETriggerEvent Trigger)
 {
-    Super::StrongAttackProcess(Trigger, instance);
-    int MaxChargeStep = 3;
-
-    switch (Trigger)
-    {
-    case ETriggerEvent::Started:
-        ChargeStep = 0;
-        break;
-    case ETriggerEvent::Triggered:
-
-        if (ChargeStep < MaxChargeStep)
-            if (instance.GetElapsedTime() / 2.0f >= ChargeStep + 1)
-            {
-                CurrentMotionMutiply += 1;
-                ChargeStep++;
-            }
-        break;
-    case ETriggerEvent::Completed:
-        break;
-    }
+    Super::StrongAttackProcess(Trigger);
 }

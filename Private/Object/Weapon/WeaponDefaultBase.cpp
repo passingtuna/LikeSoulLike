@@ -4,11 +4,14 @@
 #include "WeaponDefaultBase.h"
 #include "DA_ActionData.h"
 #include "CharacterDefaultBase.h"
+#include "CharacterPlayableBase.h"
+#include "CharacterNonPlayableBase.h"
 #include "AnimInstanceDefaultBase.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "DA_WeaponDefaultData.h"
 #include "AttackDecisionComponent.h"
 #include "Manager_Calculate.h"
+#include "NiagaraComponent.h"
 // Sets default values
 AWeaponDefaultBase::AWeaponDefaultBase()
 {
@@ -21,9 +24,9 @@ void AWeaponDefaultBase::BeginPlay()
 {
 	Super::BeginPlay();
     EventNum = 0;
-    CalculatManager = GetWorld()->GetGameInstance()->GetSubsystem<UManager_Calculate>();
+    CalculateManager = GetWorld()->GetGameInstance()->GetSubsystem<UManager_Calculate>();
+    AttackDecisionComp = GetComponentByClass<UAttackDecisionComponent>();
 
-    InfusionType = EWeaponInfusionType::EWIT_None;
 }
 
 // Called every frame
@@ -34,7 +37,7 @@ void AWeaponDefaultBase::Tick(float DeltaTime)
 }
 
 
-void AWeaponDefaultBase::SettingWeaponLocation(ACharacterDefaultBase* Character)
+void AWeaponDefaultBase::SettingWeaponData(ACharacterDefaultBase* Character)
 {
     if (DADefaultData)
     {
@@ -47,7 +50,7 @@ void AWeaponDefaultBase::SettingWeaponLocation(ACharacterDefaultBase* Character)
             {
                 if (Comp && Comp->GetName() == Elem.MeshName)
                 {
-                    WeaponMeshInitData temp;
+                    FWeaponMeshInitData temp;
                     temp.SocketName = Elem.SocketName;
                     temp.Mesh = Comp;
                     temp.InitTransForm = Elem.Transform;
@@ -63,13 +66,52 @@ void AWeaponDefaultBase::SettingWeaponLocation(ACharacterDefaultBase* Character)
     }
 
 
-    AttackDecisionComp = GetComponentByClass<UAttackDecisionComponent>();
+    TArray<UNiagaraComponent*> Components;
+    GetComponents<UNiagaraComponent>(Components);
+
+    for (UNiagaraComponent* Comp : Components)
+    {
+        if (Comp)
+        {
+            Comp->DeactivateImmediate();
+            mapNiagara.Add(FName(Comp->GetName()), Comp);
+        }
+    }
+    
 
     OwnerCharacter = Character;
+    UE_LOG(LogTemp, Log, TEXT("1"));
+    CalculateBaseDamage(OwnerCharacter);
+    UE_LOG(LogTemp, Log, TEXT("2"));
     SetActorEnableCollision(false);
+    UE_LOG(LogTemp, Log, TEXT("3"));
     if (bIsTwoHanded)
     {
         LeftHandGripComponet = Cast<USceneComponent>(GetDefaultSubobjectByName(TEXT("LeftHandGrip")));
+    }
+}
+void AWeaponDefaultBase::CalculateBaseDamage(ACharacterDefaultBase* Character)
+{
+    UE_LOG(LogTemp, Log, TEXT("4"));
+    ACharacterPlayableBase* player = Cast<ACharacterPlayableBase>(Character);
+    if(IsValid(player))
+    {
+        UE_LOG(LogTemp, Log, TEXT("5"));
+        int32 Upgrade = 0;
+        EWeaponInfusionType Infusion = EWeaponInfusionType::EWIT_None;
+        if (Itemdata)
+        {
+            Upgrade = Itemdata->Upgrade;
+            Infusion = Itemdata->Infusion;
+        }
+        CalBaseDamage = CalculateManager->GetWeaponBaseDamage(this, Upgrade, Infusion, player->GetCurrentStatus());
+    }
+    else
+    {
+        UE_LOG(LogTemp, Log, TEXT("6"));
+        ACharacterNonPlayableBase* Nplayer = Cast<ACharacterNonPlayableBase>(Character);
+
+        CalBaseDamage = DADefaultData->DamageData.BaseDamage;
     }
 }
 
@@ -119,7 +161,7 @@ void AWeaponDefaultBase::SetActiveWeapon(bool bIsActive)
 
 
 
-void AWeaponDefaultBase::StrongAttackProcess(ETriggerEvent Trigger, const FInputActionInstance& instance)
+void AWeaponDefaultBase::StrongAttackProcess(ETriggerEvent Trigger)
 {
     switch (Trigger)
     {
@@ -131,7 +173,7 @@ void AWeaponDefaultBase::StrongAttackProcess(ETriggerEvent Trigger, const FInput
     default: break;
     }
 }
-void AWeaponDefaultBase::WeakAttackProcess( ETriggerEvent Trigger, const FInputActionInstance& instance)
+void AWeaponDefaultBase::WeakAttackProcess( ETriggerEvent Trigger)
 {
     switch (Trigger)
     {
@@ -143,7 +185,7 @@ void AWeaponDefaultBase::WeakAttackProcess( ETriggerEvent Trigger, const FInputA
     default: break;
     }
 }
-void AWeaponDefaultBase::WeaponSkillProcess( ETriggerEvent Trigger, const FInputActionInstance& instance)
+void AWeaponDefaultBase::WeaponSkillProcess( ETriggerEvent Trigger)
 {
     switch (Trigger)
     {
@@ -155,7 +197,7 @@ void AWeaponDefaultBase::WeaponSkillProcess( ETriggerEvent Trigger, const FInput
     default: break;
     }
 }
-void AWeaponDefaultBase::WeaponActionProcess( ETriggerEvent Trigger, const FInputActionInstance& instance)
+void AWeaponDefaultBase::WeaponActionProcess( ETriggerEvent Trigger)
 {
     switch (Trigger)
     {
@@ -167,7 +209,7 @@ void AWeaponDefaultBase::WeaponActionProcess( ETriggerEvent Trigger, const FInpu
     default: break;
     }
 }
-void AWeaponDefaultBase::AvoidProcess( ETriggerEvent Trigger, const FInputActionInstance& instance)
+void AWeaponDefaultBase::AvoidProcess(ETriggerEvent Trigger)
 {
     switch (Trigger)
     {
@@ -207,10 +249,94 @@ void AWeaponDefaultBase::ResetWeaponEvent()
 		EventNum = 0;
     }
 }
-void AWeaponDefaultBase::SetIsAttacking(bool IsAttacking , FDamageData*DataInfo , ACharacterDefaultBase* Attacker)
+void AWeaponDefaultBase::DecisionAttack(bool IsAttacking ,ACharacterDefaultBase* Attacker, UDA_ActionData* Actiondata)
 {
     if (AttackDecisionComp)
     {
-        IsAttacking ? AttackDecisionComp->StartAttack(*DataInfo , Attacker) : AttackDecisionComp->EndAttack();
+        UE_LOG(LogTemp, Warning, TEXT("현재 모션 배율 : %f"), CurrentMotionMutiply);
+        FDamageData FinalDamage = CalBaseDamage * CurrentMotionMutiply;
+        FinalDamage = FinalDamage + BuffDamage;
+
+        UE_LOG(LogTemp, Warning, TEXT("물리공격 데미지 : %f"), FinalDamage.PhysicalDamage);
+
+        if (Actiondata)
+        {
+            FinalDamage.IsGuardable = Actiondata->IsGuardable;
+            FinalDamage.IsParryable = Actiondata->IsParryable;
+            FinalDamage.IsAvoidable = Actiondata->IsAvoidable;
+        }
+
+        IsAttacking ? AttackDecisionComp->StartAttack(FinalDamage, Attacker) : AttackDecisionComp->EndAttack();
     }
+}
+
+
+
+void AWeaponDefaultBase::OnWeaponBuff(FItemAffectData& AffectData)
+{
+    switch (AffectData.AffectType)
+    {
+        case EAffectionType::AT_FireDamage:
+        {
+            GetWorld()->GetTimerManager().ClearTimer(TimerHandle);
+            NowBuffName = "Fire";
+            UNiagaraComponent** Comp = mapNiagara.Find(NowBuffName);
+            if (Comp && *Comp)
+            {
+                (*Comp)->Activate();
+            }
+            BuffDamage.FireDamage = AffectData.Value;
+            GetWorld()->GetTimerManager().SetTimer(TimerHandle, this, &AWeaponDefaultBase::OffWeaponBuff, AffectData.Duration, false);
+        }
+        break;
+        case EAffectionType::AT_DevineDamage:
+        {
+            GetWorld()->GetTimerManager().ClearTimer(TimerHandle);
+            NowBuffName = "Devine";
+            UNiagaraComponent** Comp = mapNiagara.Find(NowBuffName);
+            if (Comp && *Comp)
+            {
+                (*Comp)->Activate();
+            }
+            BuffDamage.DevineDamage = AffectData.Value;
+            GetWorld()->GetTimerManager().SetTimer(TimerHandle, this, &AWeaponDefaultBase::OffWeaponBuff, AffectData.Duration, false);
+        }
+        break;
+        case EAffectionType::AT_MagicDamage:
+        {
+            GetWorld()->GetTimerManager().ClearTimer(TimerHandle);
+            NowBuffName = "Magic";
+            UNiagaraComponent** Comp = mapNiagara.Find(NowBuffName);
+            if (Comp && *Comp)
+            {
+                (*Comp)->Activate();
+            }
+            BuffDamage.MagicDamage = AffectData.Value;
+            GetWorld()->GetTimerManager().SetTimer(TimerHandle, this, &AWeaponDefaultBase::OffWeaponBuff, AffectData.Duration, false);
+        }
+        break;
+        case EAffectionType::AT_LightningDamage:
+        {
+            GetWorld()->GetTimerManager().ClearTimer(TimerHandle);
+            NowBuffName = "Lightning";
+            UNiagaraComponent** Comp = mapNiagara.Find(NowBuffName);
+            if (Comp && *Comp)
+            {
+                (*Comp)->Activate();
+            }
+            BuffDamage.LightningDamage = AffectData.Value;
+            GetWorld()->GetTimerManager().SetTimer(TimerHandle, this, &AWeaponDefaultBase::OffWeaponBuff, AffectData.Duration, false);
+        }
+        break;
+    }
+}
+
+void AWeaponDefaultBase::OffWeaponBuff()
+{
+    for (auto& Elem : mapNiagara)
+    {
+        Elem.Value->DeactivateImmediate();
+    }
+    BuffDamage = 0;
+    GetWorld()->GetTimerManager().ClearTimer(TimerHandle);
 }

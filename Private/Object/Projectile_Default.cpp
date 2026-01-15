@@ -6,6 +6,7 @@
 #include "CharacterDefaultBase.h"
 #include "Manager_Calculate.h"
 #include "AttackDecisionComponent.h"
+#include "Components/AudioComponent.h"
 
 
 // Sets default values
@@ -17,6 +18,8 @@ AProjectile_Default::AProjectile_Default()
 
 	ProjectileMoveComp = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileMovement"));
 	AttackDecisionComp = CreateDefaultSubobject<UAttackDecisionComponent>(TEXT("AttackDeicisionComp"));
+	HitAudioComp = CreateDefaultSubobject<UAudioComponent>(TEXT("HitSound"));
+	HitAudioComp->SetupAttachment(GetRootComponent());
 }
 
 // Called when the game starts or when spawned
@@ -54,6 +57,8 @@ void AProjectile_Default::Fire(ACharacterDefaultBase* owner, FDamageData damageD
 	LaunchedLoc = loc;
 	ProjectileMoveComp->Velocity = Dir * Speed;
 	DamageData = damageData;
+
+	UE_LOG(LogTemp, Warning, TEXT("DamageData : %f"), DamageData.PhysicalDamage);
 	SetOwner(owner);
 	OwnerCharacter = owner;
 	SetActorHiddenInGame(false);
@@ -65,7 +70,6 @@ void AProjectile_Default::Fire(ACharacterDefaultBase* owner, FDamageData damageD
 
 void AProjectile_Default::ResetProjectile()
 {
-	UE_LOG(LogTemp,Warning,TEXT("리셋 프로젝타일"));
 	IsReadyToFire = true;
 	ProjectileMoveComp->StopMovementImmediately();
 	SetActorHiddenInGame(true);
@@ -80,36 +84,26 @@ void AProjectile_Default::ReadyProjectile()
 	SetActorHiddenInGame(false);
 	SetActorEnableCollision(true);
 	SetActorTickEnabled(true);
-	UE_LOG(LogTemp, Warning, TEXT("레디 프로젝타일"));
 
 }
 void AProjectile_Default::OnHitAcotor(const FHitResult& temp)
 {
 	ACharacterDefaultBase * Char = Cast<ACharacterDefaultBase>(temp.GetActor());
-
-	FVector ImpactLocation = temp.ImpactPoint;
+	FVector ImpactLocation = temp.ImpactPoint + (GetActorForwardVector() * 80 * -1);
 	SetActorLocation(ImpactLocation);
-	ProjectileMoveComp->Deactivate();
+	if (ProjectileMoveComp)
+	{
+		ProjectileMoveComp->StopMovementImmediately();
+		ProjectileMoveComp->Deactivate();
+	}
+	SetActorEnableCollision(false);
 
-	if (Char)//캐릭터와 충돌이면 본에다 붙여줌
+	UPrimitiveComponent* RootPrim = Cast<UPrimitiveComponent>(GetRootComponent());
+	if (RootPrim)
 	{
-		if (USkeletalMeshComponent* MeshComp = Cast<USkeletalMeshComponent>(temp.GetComponent()))
-		{
-			FName BoneName = temp.BoneName;
-			if (BoneName != NAME_None)
-			{
-				AttachToComponent(
-					MeshComp,
-					FAttachmentTransformRules::KeepWorldTransform,
-					BoneName
-				);
-			}
-		}
+		RootPrim->SetSimulatePhysics(false);
 	}
-	else
-	{
-		AttachToActor(temp.GetActor(), FAttachmentTransformRules::KeepWorldTransform); //다른오브젝트라면 거기에 박힘
-	}
+	AttachToActor(temp.GetActor(), FAttachmentTransformRules::KeepWorldTransform); //다른오브젝트라면 거기에 박힘
 	AttackDecisionComp->EndAttack();
 	FTimerHandle TempHandle;
 	GetWorld()->GetTimerManager().SetTimer(TempHandle, [this]() { ResetProjectile(); }, 3.0f, false);

@@ -26,29 +26,25 @@ public:
 	TMap<FName, UCurveFloat*> StatusCapCurve;
 
 	void Initialize(FSubsystemCollectionBase& Collection);
-	FDamageData CaculateAttackDamage(ACharacterDefaultBase* Attacker);
 
-	FDamageData CaculatePlayableDamage(ACharacterPlayableBase* Attacker);
-	FDamageData CaculateNonePlayableDamage(ACharacterNonPlayableBase* Attacker);
-
-	FWeaponScaleData CalculateWeaponScale(FWeaponScaleData BasicScale, int Upgrade , EWeaponInfusionType WeaponInfusion);
-	FWeaponScaleData CalculateWeaponUpgradeScale(int Upgrade);
+	FWeaponScaleData CalculateWeaponScale(FWeaponScaleData BasicScale, int32 Upgrade , EWeaponInfusionType WeaponInfusion);
+	FWeaponScaleData CalculateWeaponUpgradeScale(int32 Upgrade);
 	FWeaponScaleData CalculateWeaponInfusionScale(EWeaponInfusionType Infuse);
 	FWeaponScaleData MutiplyScaleDataToScaleData(FWeaponScaleData Elem1, FWeaponScaleData Elem2);
 
-	FDamageData GetWeaponBaseDamage(AWeaponDefaultBase* weapon, int Upgrade, EWeaponInfusionType Infusion, FPlayerStatus userStatus);
+	FDamageData GetWeaponBaseDamage(AWeaponDefaultBase* weapon, int32 Upgrade, EWeaponInfusionType Infusion, FPlayerStatus userStatus);
 
 	FDamageData CalculateWeaponBaseDamage(FDamageData weaponBaseDamage, FPlayerStatus userStatus, FWeaponScaleData weaponScai);
 
-	int CalculateMaxHP(int Health);
-	int CalculateMaxStemina(int Enducrance);
-	int CalculateMaxMana(int Mentality); 
-	int CalculateMaxToughness(int Health);
-	int CalculateMaxWeight(int Stemina);
+	int32 CalculateMaxHP(int32 Health);
+	int32 CalculateMaxStemina(int32 Enducrance);
+	int32 CalculateMaxMana(int32 Mentality);
+	int32 CalculateMaxToughness(int32 Health);
+	int32 CalculateMaxWeight(int32 Stemina);
 
 	FCharacterState CalculateMaxState(FPlayerStatus userStatus);
 	FResistData CalculateMaxResist(FPlayerStatus userStatus);
-	int CalculateResist(int Status);
+	int32 CalculateResist(int32 Status);
 
-	int GetNextRequireSoul(int Level);
+	int32 GetNextRequireSoul(int32 Level);
 };

@@ -6,6 +6,7 @@
 #include "GameFramework/Character.h"
 #include "LikeSoulLikeType.h"
 #include "EnhancedInputComponent.h"
+#include "GenericTeamAgentInterface.h"
 #include "CharacterDefaultBase.generated.h"
 
 class UDA_DefaultMotion;
@@ -15,8 +16,11 @@ class AWeaponDefaultBase;
 class UManager_UI;
 class UWidgetComponent;
 class UManager_Calculate;
+class UGrabProcessComponent; 
+class UAudioComponent;
+class UDA_DefaultSoundData;
 UCLASS()
-class LIKESOULLIKE_API ACharacterDefaultBase : public ACharacter
+class LIKESOULLIKE_API ACharacterDefaultBase : public ACharacter , public IGenericTeamAgentInterface
 {
 	GENERATED_BODY()
 
@@ -36,19 +40,20 @@ protected:
 
 	bool IsCrouch;
 
-	bool IsMoveable;		//이동 아이템 사용등 비전투 모션 가능
-	bool IsAvoidable;	//회피 가능
-	bool IsAttackable;  //공격 가능
-	bool IsRunable;		//달리기 가능
+	bool IsMoveable;		//?? ??? ??? ??? ?? ??
+	bool IsAvoidable;	//?? ??
+	bool IsAttackable;  //?? ??
+	bool IsRunable;		//??? ??
+	bool IsGrabable;		//?? ?? ????
 
 	bool IsDead;
 	bool CanRestoreStemina;
 
 	FVector LastInputDir;
-	int LastInputSecond;
+	int32 LastInputSecond;
 
-	ECharacterCamp CharacterCamp;
-
+	FTimerHandle ItemUseTimer;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Init")
 	FCharacterState MaxState;
 	FCharacterState CurrentState;
 	FResistData CurrentResist;
@@ -63,39 +68,45 @@ protected:
 	UWidgetComponent* LockOnWidget_HpBar;
 	UWidgetComponent* LockOnWidget_Dot;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite , Category = "Init")
-	TSubclassOf<AWeaponDefaultBase> BaseWeapon;
-	UManager_UI* UIManager;
-	UManager_Calculate* CalculatManager;
+	UAudioComponent* AudioComp;
+	UAudioComponent* AudioEffectComp;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite , Category = "Init")
+	TSoftClassPtr<AWeaponDefaultBase> BaseWeapon;
+	UManager_Calculate* CalculatManager;
 	AWeaponDefaultBase* CurrentWeapon;
 	FTimerHandle SteminaTimer;
-
+	FChargeMotionData ChargeData;
+	bool IsLockOn;
+	ACharacterDefaultBase* LockOnTargetChar;
 public:	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Init")
+	UGrabProcessComponent* GrapComp;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Init")
 	UDA_DefaultMotion* DefaultMotion;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Init")
+	UDA_DefaultSoundData* DefaultSound;
+	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
-	virtual int CalculateFinalDamage(const FDamageData& damageData);
+	virtual int32 CalculateFinalDamage(const FDamageData& damageData);
 
-	virtual void CalculateResist();
-
-	virtual void ReceiveAttack(const FDamageData damage ,const FVector hitDirection);
+	virtual void ReceiveAttack(ACharacterDefaultBase * Attacker ,const FDamageData damage ,const FVector hitDirection);
 	virtual void DiedProcess();
-	virtual void AddWeaponToMainSlot(TSubclassOf<AWeaponDefaultBase> weapon, int slotNum);
+	virtual void AddWeaponToMainSlot(TSoftClassPtr<AWeaponDefaultBase> weapon, int32 slotNum);
 
-	virtual void ModifyCurrentHealth(int param);
-	virtual void ModifyCurrentStemina(int stemina);
-	virtual void ModifyCurrentMana(int mana);
+	virtual void ModifyCurrentHealth(int32 param);
+	virtual void ModifyCurrentStemina(int32 stemina);
+	virtual void ModifyCurrentMana(int32 mana);
 
-	void ModifyCurrentToughness(int Toughness);
-	void SetCurrentToughness(int Toughness);
+	void ModifyCurrentToughness(int32 Toughness);
+	void SetCurrentToughness(int32 Toughness);
 
 	void SetCrouchState(bool param);
 	void ReadyToAction();
@@ -105,14 +116,16 @@ public:
 	void SetIsParrying(bool param) { IsParrying = param; };
 	void SetIsBouncing(bool param) { IsBouncing = param; };
 	void SetIsAttacking(bool param);
+	void ResetStates();
 
-	void SetIsMoveable(bool param) { IsMoveable = param; };
-	
+	virtual void SetIsAttackable(bool param) { IsAttackable = param; };
+	virtual void SetIsMoveable(bool param) { IsMoveable = param; };
+	virtual void SetIsAvoidable(bool param) { IsAvoidable = param; };
+	virtual void SetIsRunable(bool param) { IsRunable = param; };
+	virtual void SetIsGrabable(bool param);
 
-	void SetIsAttackable(bool param) { IsAttackable = param; };
-	void SetIsRunable(bool param) { IsRunable = param; };
-	void SetIsAvoidable(bool param) { IsAvoidable = param; };
 	void SetCanRestoreStemina(bool param) { CanRestoreStemina = param; };
+
 
 	UFUNCTION(BlueprintCallable)
 	AWeaponDefaultBase* GetCurrentWeapon() { return CurrentWeapon; };
@@ -124,11 +137,8 @@ public:
 	UCharacterMovementComponent* GetCharacterMovementComponent() { return CharacterMovement; };
 	bool GetIsDead() { return IsDead; };
 
-	ECharacterCamp GetCharCamp() { return CharacterCamp; };
-
-
 	void ActionConsumeProcess();
-	bool ExcuteActionMotionByType(UDA_ActionData* actionData, ETriggerEvent Trigger, const FInputActionInstance& instance);
+	void ExcutingWeaponBaseAction(EActionInputType actionName, ETriggerEvent Trigger);
 
 	void AvoidMovement(FVector vector ,float Speed);
 
@@ -140,5 +150,26 @@ public:
 
 	FCharacterState GetCurrentState() {return CurrentState;};
 	FResistData GetCurrentResist() { return CurrentResist; };
+
+	bool CheckConsumeableResource(int32 consumeMana);
+	FName GetCurrentSection(UAnimMontage * montage);
+
+	bool ExcuteActionMotionByType(UDA_ActionData* actionData, ETriggerEvent Trigger);
+	bool ExcuteTypeInstance(UDA_ActionData* actionData, ETriggerEvent Trigger);
+	bool ExcuteTypeRelease(UDA_ActionData* actionData, ETriggerEvent Trigger);
+	bool ExcuteTypeAvoid(UDA_ActionData* actionData, ETriggerEvent Trigger);
+	bool ExcuteTypeCharge(UDA_ActionData* actionData, ETriggerEvent Trigger);
+	bool ExcuteTypeHold(UDA_ActionData* actionData, ETriggerEvent Trigger);
+
+	bool CheckHostileChar(ACharacterDefaultBase* TargetChar ,bool IsCheckNeutral);
+
+	void SetStun();
+	bool TriedGrab(ACharacterDefaultBase* Attacker );
+
+	bool CheckAndTryGrap();
+	
+	bool ExcuteItemAffect(FItemAffectData& data);
+	void PlaySound(FName SoundName , bool Constance = false);
+	void StopSound(bool constance);
 };
  

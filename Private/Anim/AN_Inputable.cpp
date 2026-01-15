@@ -21,5 +21,6 @@ void UAN_Inputable::Notify(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* 
 		DecisionChar->SetIsAvoidable(IsAvoidable);
 		DecisionChar->SetIsAttackable(IsAttackable);
 		DecisionChar->SetIsRunable(IsRunable);
+		DecisionChar->SetIsGrabable(IsGrabable);
 	}
 }

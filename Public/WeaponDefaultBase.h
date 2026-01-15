@@ -14,6 +14,7 @@ class ACharacterDefaultBase;
 class UAttackDecisionComponent;
 class UDA_WeaponDefaultData;
 class UManager_Calculate;
+class UNiagaraComponent;
 UCLASS()
 class AWeaponDefaultBase : public AActor
 {
@@ -25,26 +26,25 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-	
-	TMap<FName, WeaponMeshInitData> mapWeaponMesh;
+	FTimerHandle TimerHandle;
+	FName NowBuffName;
+	TMap<FName, FWeaponMeshInitData> mapWeaponMesh;
+	TMap<FName, UNiagaraComponent*> mapNiagara;
 	UItemBase* ItemInfo;
 	EItemEnchantType EnchantType;
 	EActionInputType InputType;
-	int EventNum;
+	int32 EventNum;
 	ACharacterDefaultBase* OwnerCharacter;
-	int StrongCorrection;
-	int DexteryCorrection;
-	int IntellegenceCorrection;
-	int FaithCorrection;
-	int BaseDamage;
 	UAttackDecisionComponent* AttackDecisionComp;
 	USceneComponent* LeftHandGripComponet;
-	UManager_Calculate* CalculatManager;
+	UManager_Calculate* CalculateManager;
+
+	FDamageData			CalBaseDamage;
+	FDamageData			BuffDamage;
 
 	float CurrentMotionMutiply;
-	int ChargeStep;
-	int Upgrade;
-	EWeaponInfusionType InfusionType;
+
+	FItemData * Itemdata;
 public:
 	// Sets default values for this actor's properties
 	AWeaponDefaultBase();
@@ -53,6 +53,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool bIsTwoHanded;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool bIsBuffAble;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	UAnimSequence* IdleMotion;
@@ -75,25 +78,31 @@ public:
 	UDA_WeaponDefaultData* DADefaultData;
 	
 
-	virtual void SettingWeaponLocation(ACharacterDefaultBase * Character);
+	virtual void SettingWeaponData(ACharacterDefaultBase * Character);
 	void SetActiveWeapon(bool bIsActive);
 
-	virtual void StrongAttackProcess( ETriggerEvent Trigger, const FInputActionInstance& instance);
-	virtual void WeakAttackProcess( ETriggerEvent Trigger, const FInputActionInstance& instance);
-	virtual void WeaponSkillProcess( ETriggerEvent Trigger, const FInputActionInstance& instance);
-	virtual void WeaponActionProcess(ETriggerEvent Trigger, const FInputActionInstance& instance);
-	virtual void AvoidProcess( ETriggerEvent Trigger, const FInputActionInstance& instance);
+	virtual void StrongAttackProcess(ETriggerEvent Trigger);
+	virtual void WeakAttackProcess(ETriggerEvent Trigger);
+	virtual void WeaponSkillProcess(ETriggerEvent Trigger);
+	virtual void WeaponActionProcess(ETriggerEvent Trigger);
+	virtual void AvoidProcess(ETriggerEvent Trigger);
+	
 
+	void CalculateBaseDamage(ACharacterDefaultBase* Character);
 	virtual void ExcueteWeaponEvent(EActionInputType type);
 	void IncreaseWeaponEventNum(EActionInputType type) ;
 	void ResetWeaponEvent();
-	void SetIsAttacking(bool isAttacking , FDamageData* DataInfo , ACharacterDefaultBase* Attacker);
+	void DecisionAttack(bool isAttacking , ACharacterDefaultBase* Attacker ,UDA_ActionData* Actiondata);
 
 	float GetCurrentMotionMulply() { return CurrentMotionMutiply; };
+	void  SetCurrentMotionMulply(float data) {CurrentMotionMutiply = data; };
 
-	void SetUpgrade(int upgrade) { Upgrade = upgrade; };
-	void SetInfusion(int infusion) { InfusionType = (EWeaponInfusionType)infusion; };
+	void SetItemData(FItemData* dataptr) {Itemdata = dataptr;};
+	void SetUpgrade(int32 upgrade) { Itemdata->Upgrade = upgrade; };
+	void SetInfusion(EWeaponInfusionType infusion) { Itemdata->Infusion = infusion; };
 
-	int GetUpgrade() { return Upgrade; };
-	EWeaponInfusionType GetInfusionType() { return InfusionType; };
+	FItemData* GetItemData() { return Itemdata; };
+
+	void OnWeaponBuff(FItemAffectData & AffectData);
+	void OffWeaponBuff();
 };

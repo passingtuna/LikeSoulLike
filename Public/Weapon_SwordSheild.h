@@ -13,9 +13,9 @@ UCLASS()
 class LIKESOULLIKE_API AWeapon_SwordSheild : public AWeaponDefaultBase
 {
 	GENERATED_BODY()
-	
+	UPrimitiveComponent* SwordMesh;
 public:
-
+	virtual void SettingWeaponData(ACharacterDefaultBase* Character)override;
 	virtual void ExcueteWeaponEvent(EActionInputType type) override;
-	virtual void StrongAttackProcess(ETriggerEvent Trigger, const FInputActionInstance& instance)override;
+	virtual void StrongAttackProcess(ETriggerEvent Trigger)override;
 };
