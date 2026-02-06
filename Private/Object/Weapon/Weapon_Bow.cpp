@@ -112,7 +112,6 @@ void AWeapon_Bow::Tick(float DeltaTime)
 
         if (MultiShot)
         {
-            FRotator tempRot;
             for (int32 i = 0 ; i < AdditionalArrow.Num(); ++i)
             {
                 FVector FanAxis = BowMesh->GetForwardVector();

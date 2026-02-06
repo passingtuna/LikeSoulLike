@@ -495,6 +495,7 @@ void ACharacterDefaultBase::ExcutingWeaponBaseAction(EActionInputType actionInpu
 	{
 		ExcuteActionMotionByType(playMotionData, Trigger);
 	}
+
 	if (CurrentWeapon) // 현재 장착 무기 기준으로 액션을 실행
 	{
 		switch (actionInputType)

@@ -40,11 +40,11 @@ protected:
 
 	bool IsCrouch;
 
-	bool IsMoveable;		//?? ??? ??? ??? ?? ??
-	bool IsAvoidable;	//?? ??
-	bool IsAttackable;  //?? ??
-	bool IsRunable;		//??? ??
-	bool IsGrabable;		//?? ?? ????
+	bool IsMoveable;		//이동 아이템 사용등 비전투 모션 가능
+	bool IsAvoidable;	//회피 가능
+	bool IsAttackable;  //공격 가능
+	bool IsRunable;		//달리기 가능
+	bool IsGrabable;		//내가 잡기 가능상태
 
 	bool IsDead;
 	bool CanRestoreStemina;
