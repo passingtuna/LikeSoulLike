@@ -40,11 +40,11 @@ protected:
 
 	bool IsCrouch;
 
-	bool IsMoveable;		//ì´ë™ ì•„ì´í…œ ì‚¬ìš©ë“± ë¹„ì „íˆ¬ ëª¨ì…˜ ê°€ëŠ¥
-	bool IsAvoidable;	//íšŒí”¼ ê°€ëŠ¥
-	bool IsAttackable;  //ê³µê²© ê°€ëŠ¥
-	bool IsRunable;		//ë‹¬ë¦¬ê¸° ê°€ëŠ¥
-	bool IsGrabable;		//ë‚´ê°€ ì¡ê¸° ê°€ëŠ¥ìƒíƒœ
+	bool IsMoveable;		//ÀÌµ¿ ¾ÆÀÌÅÛ »ç¿ëµî ºñÀüÅõ ¸ğ¼Ç °¡´É
+	bool IsAvoidable;	//È¸ÇÇ °¡´É
+	bool IsAttackable;  //°ø°İ °¡´É
+	bool IsRunable;		//´Ş¸®±â °¡´É
+	bool IsGrabable;		//³»°¡ Àâ±â °¡´É»óÅÂ
 
 	bool IsDead;
 	bool CanRestoreStemina;
