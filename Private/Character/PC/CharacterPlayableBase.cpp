@@ -26,6 +26,7 @@
 #include "InteractComponent.h"
 #include "EquipmentComponent.h"
 
+#include "DeathRespawnComponent.h"
 #include "ItemUseComponent.h"
 
 
@@ -39,6 +40,7 @@ ACharacterPlayableBase::ACharacterPlayableBase()
 	InteractComp = CreateDefaultSubobject<UInteractComponent>(TEXT("InteractComponent"));
 	EquipmentComp = CreateDefaultSubobject<UEquipmentComponent>(TEXT("EquipmentComponent"));
 
+	DeathRespawnComp = CreateDefaultSubobject<UDeathRespawnComponent>(TEXT("DeathRespawnComponent"));
 	ItemUseComp = CreateDefaultSubobject<UItemUseComponent>(TEXT("ItemUseComponent"));
 }
 
@@ -78,7 +80,10 @@ void ACharacterPlayableBase::BeginPlay()
 	{
 		EquipmentComp->Initialize(this);
 	}
-
+	if (DeathRespawnComp)
+	{
+		DeathRespawnComp->Initialize(this);
+	}
 	if (ItemUseComp)
 	{
 		ItemUseComp->Initialize(this);
@@ -149,6 +154,12 @@ void ACharacterPlayableBase::SetCurrentWeaponInternal(AWeaponDefaultBase* NewWea
 {
 	CurrentWeapon = NewWeapon;
 }
+
+void ACharacterPlayableBase::SetDeadStateInternal(bool bDead)
+{
+	IsDead = bDead;
+}
+
 void ACharacterPlayableBase::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -655,6 +666,11 @@ void ACharacterPlayableBase::CheckStatusCondition(float DeltaTime)
 
 void ACharacterPlayableBase::DiedProcess()
 {
+	if (DeathRespawnComp)
+	{
+		DeathRespawnComp->HandleDeath();
+		return;
+	}
 	IsDead = true;
 	AnimInstance->StopAllMontages(0);
 	PlayAnimMontage(DefaultMotion->DiedMotion, 1);

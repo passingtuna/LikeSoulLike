@@ -25,6 +25,7 @@ class USpringArmComponent;
 class ULockOnComponent;
 class UInteractComponent;
 class UEquipmentComponent;
+class UDeathRespawnComponent;
 class UItemUseComponent;
 UCLASS()
 class LIKESOULLIKE_API ACharacterPlayableBase : public ACharacterDefaultBase
@@ -76,6 +77,8 @@ public:
 	TObjectPtr<UEquipmentComponent> EquipmentComp;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Component", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Component", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UDeathRespawnComponent> DeathRespawnComp;
 	TObjectPtr<UItemUseComponent> ItemUseComp;
 protected:
 	// Called when the game starts or when spawned
@@ -96,6 +99,7 @@ public:
 
 	UEquipmentComponent* GetEquipmentComponent() const { return EquipmentComp; }
 	UInteractComponent* GetInteractComponent() const { return InteractComp; }
+	UDeathRespawnComponent* GetDeathRespawnComponent() const { return DeathRespawnComp; }
 	void HandleInput(FName actionName, ETriggerEvent trigger, const FInputActionInstance& value);
 
 	void UpdateStatus();
@@ -106,6 +110,7 @@ public:
 
 	int32 GetCurrentQuickSlotIndex() const { return CurrentQuickSlotNum; }
 	void SetCurrentWeaponInternal(AWeaponDefaultBase* NewWeapon);
+	void SetDeadStateInternal(bool bDead);
 
 	void TryLockOn();
 	bool CheckTargetLock(ACharacterDefaultBase * Target, float& ClosestDistSq);
