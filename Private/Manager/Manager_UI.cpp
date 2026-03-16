@@ -19,6 +19,10 @@
 #include "UW_QuickSlot.h"
 #include "UW_BoneFireMenu.h"
 #include "UW_BonefireWarp.h"
+#include "PlayerStatusComponent.h"
+#include "EquipmentComponent.h"
+#include "InteractComponent.h"
+#include "DeathRespawnComponent.h"
 
 void UManager_UI::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -148,6 +152,78 @@ void UManager_UI::InitUI(ACharacterPlayableBase* Character)
         BonfieWarpWidget->InitBonefireWarpWindow(PlayerCharacter);
         BonfieWarpWidget->SetVisibility(ESlateVisibility::Collapsed);
         BonfieWarpWidget->OnRequestClose.BindUObject(this, &UManager_UI::PopUI);
+    }
+
+    if (UPlayerStatusComponent* StatusComp = PlayerCharacter ? PlayerCharacter->GetPlayerStatusComponent() : nullptr)
+    {
+        StatusComp->OnSoulChanged.AddLambda([this](int32 Soul)
+            {
+                ChangeSoul(Soul);
+            });
+        StatusComp->OnHPChanged.AddLambda([this](float Cur, float Max)
+            {
+                SetPlayerHP(Cur, Max);
+            });
+        StatusComp->OnSPChanged.AddLambda([this](float Cur, float Max)
+            {
+                SetPlayerSP(Cur, Max);
+            });
+        StatusComp->OnMPChanged.AddLambda([this](float Cur, float Max)
+            {
+                SetPlayerMP(Cur, Max);
+            });
+    }
+
+    if (UEquipmentComponent* EquipComp = PlayerCharacter ? PlayerCharacter->GetEquipmentComponent() : nullptr)
+    {
+        EquipComp->OnWeaponSlotChanged.AddLambda([this](FItemData Item)
+            {
+                ChangeWeaponSlot(Item);
+            });
+        EquipComp->OnQuickSlotChanged.AddLambda([this](FItemData Item)
+            {
+                ChangeQuickSlot(Item);
+            });
+    }
+
+    if (UInteractComponent* InteractComp = PlayerCharacter ? PlayerCharacter->GetInteractComponent() : nullptr)
+    {
+        InteractComp->OnShowGetItemUI.AddLambda([this](FItemData Item, FText Text)
+            {
+                ShowGetItemUI(Item, Text);
+            });
+        InteractComp->OnAnnouncementText.AddLambda([this](FString Text)
+            {
+                AnnouncementText(Text);
+            });
+        InteractComp->OnOpenBonefireMenu.AddLambda([this](FName Name)
+            {
+                OpenBonefireMenu(Name);
+            });
+    }
+
+    if (UDeathRespawnComponent* DeathComp = PlayerCharacter ? PlayerCharacter->GetDeathRespawnComponent() : nullptr)
+    {
+        DeathComp->OnAnnouncementFadeOut.AddLambda([this](FString Text)
+            {
+                AnnouncementFadeOut(Text);
+            });
+        DeathComp->OnBossHPUI.AddLambda([this](bool On)
+            {
+                ShowBossHPUI(On);
+            });
+        DeathComp->OnRequestInvisibleAnnouncement.AddLambda([this]()
+            {
+                InvisibleAnnouncement();
+            });
+    }
+
+    if (PlayerCharacter)
+    {
+        PlayerCharacter->OnAimWidgetChanged.AddLambda([this](bool On)
+            {
+                ShowAimWidget(On);
+            });
     }
 
 }

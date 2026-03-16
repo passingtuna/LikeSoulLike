@@ -18,10 +18,19 @@ class UCameraComponent;
 class ASoulLikeController;
 class UInventoryComponent;
 class UManager_ItemInfo;
+class UManager_Enemy;
 class ABoneFire;
 class ADropItem;
 class UManager_Bonefire;
 class USpringArmComponent;
+class ULockOnComponent;
+class UInteractComponent;
+class UEquipmentComponent;
+class UDeathRespawnComponent;
+class UItemUseComponent;
+class UPlayerStatusComponent;
+
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnAimWidgetChanged, bool );
 UCLASS()
 class LIKESOULLIKE_API ACharacterPlayableBase : public ACharacterDefaultBase
 {
@@ -39,7 +48,7 @@ public:
 	int32 WeaponSlot1WeaponDamage;
 	int32 WeaponSlot2WeaponDamage;
 	int32 WeaponSlot3WeaponDamage;
-	TArray< FStatusCondition> arrStatusCondition;
+	TArray<FStatusCondition> arrStatusCondition;
 
 	int32 CurrentWeaponSlotNum;
 	int32 CurrentQuickSlotNum;
@@ -61,6 +70,24 @@ public:
 	float SprintStaminaAcc;
 
 	bool IsAimMode;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Component", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<ULockOnComponent> LockOnComp;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Component", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UInteractComponent> InteractComp;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Component", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UEquipmentComponent> EquipmentComp;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Component", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UPlayerStatusComponent> PlayerStatusComp;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Component", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UDeathRespawnComponent> DeathRespawnComp;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Component", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UItemUseComponent> ItemUseComp;
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -77,9 +104,32 @@ public:
 	void ModifyCurrentSoul(int32 soul);
 
 	ASoulLikeController* GetPlayerController() {return PlayerController;	};
+	UPlayerStatusComponent* GetPlayerStatusComponent() const { return PlayerStatusComp; }
+	UEquipmentComponent* GetEquipmentComponent() const { return EquipmentComp; }
+	UInteractComponent* GetInteractComponent() const { return InteractComp; }
+	UDeathRespawnComponent* GetDeathRespawnComponent() const { return DeathRespawnComp; }
+
+	FOnAimWidgetChanged OnAimWidgetChanged;
 	void HandleInput(FName actionName, ETriggerEvent trigger, const FInputActionInstance& value);
 
 	void UpdateStatus();
+
+	void SetLockOnState(bool bOn, ACharacterDefaultBase* Target);
+	bool GetIsLockOnState() const { return IsLockOn; }
+	ACharacterDefaultBase* GetLockOnTarget() const { return LockOnTargetChar; }
+
+	bool GetIsMoveable() const { return IsMoveable; }
+	UInventoryComponent* GetInventoryComponent() const { return InventoryComp; }
+	UManager_UI* GetUIManager() const { return UIManager; }
+	UManager_ItemInfo* GetItemInfoManager() const { return ItemInfoManager; }
+	UManager_Enemy* GetEnemyManager() const;
+	UManager_Bonefire* GetBonefireManager() const { return BonefireManager; }
+	int32 GetCurrentQuickSlotIndex() const { return CurrentQuickSlotNum; }
+	const FCharacterState& GetMaxState() const { return MaxState; }
+
+	// EquipmentComponent 브리지 (ACharacterDefaultBase 보호 멤버 접근)
+	void SetCurrentWeaponInternal(AWeaponDefaultBase* NewWeapon);
+	void SetDeadStateInternal(bool bDead);
 
 	void TryLockOn();
 	bool CheckTargetLock(ACharacterDefaultBase * Target, float& ClosestDistSq);
@@ -115,9 +165,6 @@ public:
 	void SetAimingMode(bool On);
 
 	void DropSoul();
-
-	void Interact_Item(ADropItem * dropitem);
-	void Interact_BoneFire(ABoneFire* dropitem);
 
 	UInventoryComponent* GetInventoryComponent() {return InventoryComp;};
 	FPlayerStatus GetCurrentStatus() { return CurrentStatus; };
