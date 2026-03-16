@@ -23,7 +23,7 @@ class ADropItem;
 class UManager_Bonefire;
 class USpringArmComponent;
 class ULockOnComponent;
-
+class UInteractComponent;
 class UEquipmentComponent;
 class UItemUseComponent;
 UCLASS()
@@ -70,6 +70,8 @@ public:
 	TObjectPtr<ULockOnComponent> LockOnComp;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Component", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UInteractComponent> InteractComp;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Component", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UEquipmentComponent> EquipmentComp;
 
@@ -93,6 +95,7 @@ public:
 	ASoulLikeController* GetPlayerController() {return PlayerController;	};
 
 	UEquipmentComponent* GetEquipmentComponent() const { return EquipmentComp; }
+	UInteractComponent* GetInteractComponent() const { return InteractComp; }
 	void HandleInput(FName actionName, ETriggerEvent trigger, const FInputActionInstance& value);
 
 	void UpdateStatus();
@@ -138,9 +141,6 @@ public:
 	void SetAimingMode(bool On);
 
 	void DropSoul();
-
-	void Interact_Item(ADropItem * dropitem);
-	void Interact_BoneFire(ABoneFire* dropitem);
 
 	UInventoryComponent* GetInventoryComponent() {return InventoryComp;};
 	FPlayerStatus GetCurrentStatus() { return CurrentStatus; };

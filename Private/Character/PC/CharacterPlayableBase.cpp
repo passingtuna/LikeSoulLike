@@ -23,6 +23,7 @@
 #include "Manager_Bonefire.h"
 #include "Manager_Enemy.h"
 #include "LockOnComponent.h"
+#include "InteractComponent.h"
 #include "EquipmentComponent.h"
 
 #include "ItemUseComponent.h"
@@ -35,6 +36,7 @@ ACharacterPlayableBase::ACharacterPlayableBase()
 	PrimaryActorTick.bCanEverTick = true;
 	InventoryComp = CreateDefaultSubobject<UInventoryComponent>(TEXT("InventoryComponent"));
 	LockOnComp = CreateDefaultSubobject<ULockOnComponent>(TEXT("LockOnComponent"));
+	InteractComp = CreateDefaultSubobject<UInteractComponent>(TEXT("InteractComponent"));
 	EquipmentComp = CreateDefaultSubobject<UEquipmentComponent>(TEXT("EquipmentComponent"));
 
 	ItemUseComp = CreateDefaultSubobject<UItemUseComponent>(TEXT("ItemUseComponent"));
@@ -68,7 +70,10 @@ void ACharacterPlayableBase::BeginPlay()
 	{
 		LockOnComp->Initialize(this, CameraComp, PlayerController, CharacterMovement);
 	}
-
+	if (InteractComp)
+	{
+		InteractComp->Initialize(this);
+	}
 	if (EquipmentComp)
 	{
 		EquipmentComp->Initialize(this);
@@ -541,112 +546,18 @@ void ACharacterPlayableBase::SetAimingMode(bool On)
 void ACharacterPlayableBase::Interact(ETriggerEvent Trigger)
 {
 	if (!IsMoveable) return;
-	//근처의 상호작용 오브젝트 찾기 .. 충돌로?
-
-
 	//상호 작용 오브젝트가 있으면 상호작용 오브젝트의 함수를 실행한다
 	switch (Trigger)
 	{
 		case ETriggerEvent::Started:
 		{
-			TArray<FOverlapResult> Overlaps;
-
-			FCollisionShape Sphere = FCollisionShape::MakeSphere(50);
-			FCollisionQueryParams Params;
-			Params.AddIgnoredActor(this);
-
-			FVector SearchLoc = GetActorLocation() + (GetActorForwardVector() * 20);
-
-			SearchLoc.Z -= 50;
-			GetWorld()->OverlapMultiByChannel(
-				Overlaps, 
-				SearchLoc,
-				FQuat::Identity,
-				ECC_Pawn,
-				Sphere,
-				Params
-			);
-			for (auto& Target : Overlaps)
+			if (InteractComp)
 			{
-				ADropItem* DropItem = Cast<ADropItem>(Target.GetActor());
-				if (DropItem)
-				{
-					Interact_Item(DropItem);
-				}
-
-				ABoneFire* Bonefire = Cast<ABoneFire>(Target.GetActor());
-				if (Bonefire)
-				{
-					Interact_BoneFire(Bonefire);
-				}
+				InteractComp->HandleInteract();
 			}
-			//DrawDebugSphere(GetWorld(), SearchLoc, 100, 16, FColor::Green, false, 0.05f);
 		}
 		break;
-		case ETriggerEvent::Triggered:
-		{
-		}
-		break;
-		case ETriggerEvent::Completed:
-		{
-		}
-	break;
 	default: break;
-	}
-}
-
-void ACharacterPlayableBase::Interact_Item(ADropItem* DropItem)
-{
-	PlaySound("GetItem");
-	if (DropItem->IsSoul)
-	{
-		ModifyCurrentSoul(DropItem->Soul);
-		DropItem->Destroy();
-		return;
-	}
-	else
-	{
-		FString tempString;
-		FItemData tempItemCount = DropItem->ItemInfo;
-		int32 result = InventoryComp->PutInItemToInventory(DropItem->ItemInfo);
-		if (result <= 0)
-		{
-			DropItem->Destroy();
-		}
-		else //인벤 창고 꽉차서 필드에 남김
-		{
-			tempString = TEXT("가득참 : ");
-			DropItem->ItemInfo.Count = result;
-			tempItemCount.Count -= result;
-		}
-		tempString += GetGameInstance()->GetSubsystem<UManager_ItemInfo>()->GetItemNameString(tempItemCount);
-
-		UIManager->ShowGetItemUI(DropItem->ItemInfo, FText::FromString(tempString));
-		FItemData temp = InventoryComp->GetQuickSlotItem(CurrentQuickSlotNum);
-		UIManager->ChangeQuickSlot(temp);
-		return;
-	}
-}
-void ACharacterPlayableBase::Interact_BoneFire(ABoneFire* bonefire)
-{
-	if (bonefire->IsLitedboneFire)
-	{
-		UIManager->OpenBonefireMenu(bonefire->Name);
-		GetGameInstance()->GetSubsystem<UManager_Enemy>()->RespawnAll();
-		ResetStates();
-		BonefireManager->SetLastVisitBonefireName(bonefire->Name);
-		InventoryComp->RefillInventory();
-		FItemData temp = InventoryComp->GetQuickSlotItem(CurrentQuickSlotNum);
-		UIManager->ChangeQuickSlot(temp);
-
-		UIManager->SetPlayerHP(CurrentState.HP, MaxState.HP);
-		UIManager->SetPlayerSP(CurrentState.Stemina, MaxState.Stemina);
-		UIManager->SetPlayerMP(CurrentState.Mana, MaxState.Mana);
-	}
-	else
-	{
-		UIManager->AnnouncementText("Bonefire Lit");
-		bonefire->LitBoneFire();
 	}
 }
 
