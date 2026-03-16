@@ -225,8 +225,6 @@ void ACharacterPlayableBase::HandleInput(FName ActionName, ETriggerEvent Trigger
 	else if (ActionName == "WeaponAction")	ExcutingWeaponBaseAction(EActionInputType::AIT_WeaponAction, Trigger);
 	else if (ActionName == "WeaponSkill")	ExcutingWeaponBaseAction(EActionInputType::AIT_WeaponSkill, Trigger);
 	else if (ActionName == "UserMenu")      UserMenu(Trigger);
-	
-
 }
 void ACharacterPlayableBase::UserMenu(ETriggerEvent trigger)
 {
