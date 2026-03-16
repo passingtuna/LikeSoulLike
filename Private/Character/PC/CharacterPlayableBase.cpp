@@ -22,6 +22,7 @@
 #include "BoneFire.h"
 #include "Manager_Bonefire.h"
 #include "Manager_Enemy.h"
+#include "LockOnComponent.h"
 
 
 // Sets default values
@@ -30,6 +31,7 @@ ACharacterPlayableBase::ACharacterPlayableBase()
  	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 	InventoryComp = CreateDefaultSubobject<UInventoryComponent>(TEXT("InventoryComponent"));
+	LockOnComp = CreateDefaultSubobject<ULockOnComponent>(TEXT("LockOnComponent"));
 }
 
 FGenericTeamId ACharacterPlayableBase::GetGenericTeamId() const
@@ -56,6 +58,10 @@ void ACharacterPlayableBase::BeginPlay()
 	SpringArmComp = FindComponentByClass<USpringArmComponent>();
 	InventoryComp->SetInventoryOwner(this);
 	PlayerController = Cast<ASoulLikeController>(GetController());
+	if (LockOnComp)
+	{
+		LockOnComp->Initialize(this, CameraComp, PlayerController, CharacterMovement);
+	}
 
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationPitch = false;
@@ -94,24 +100,20 @@ void ACharacterPlayableBase::UpdateCurrentQuickSlotUI()
 	UIManager->ChangeQuickSlot(temp);
 }
 
-// Called every frame
+void ACharacterPlayableBase::SetLockOnState(bool bOn, ACharacterDefaultBase* Target)
+{
+	IsLockOn = bOn;
+	LockOnTargetChar = Target;
+}
 void ACharacterPlayableBase::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	UIManager->ChangeSoul(CurrentStatus.Soul);
 	CheckStatusCondition(DeltaTime);
 
-	if (IsLockOn && LockOnTargetChar)
+	if (LockOnComp)
 	{
-		if (CheckContinueLockOn())
-		{
-			UpdateLockOnRotation(DeltaTime);
-		}
-		else
-		{
-			ReleaseLockOn();
-		}
+		LockOnComp->TickLockOn(DeltaTime);
 	}
 
 	if (CurrentWeapon)
@@ -133,7 +135,6 @@ void ACharacterPlayableBase::Tick(float DeltaTime)
 	}
 }
 
-// Called to bind functionality to input
 void ACharacterPlayableBase::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
@@ -174,13 +175,9 @@ void ACharacterPlayableBase::LockOn(ETriggerEvent Trigger)
 	{
 		case ETriggerEvent::Started:
 		{
-			if (IsLockOn)
+			if (LockOnComp)
 			{
-				ReleaseLockOn();
-			}
-			else
-			{
-				TryLockOn();
+				LockOnComp->ToggleLockOn();
 			}
 		}
 		break;
@@ -192,6 +189,11 @@ void ACharacterPlayableBase::LockOn(ETriggerEvent Trigger)
 
 void ACharacterPlayableBase::TryLockOn() 
 {
+	if (LockOnComp)
+	{
+		LockOnComp->TryLockOn();
+		return;
+	}
 	TArray<FOverlapResult> Overlaps;
 
 	FCollisionShape Sphere = FCollisionShape::MakeSphere(1000);
@@ -208,7 +210,6 @@ void ACharacterPlayableBase::TryLockOn()
 	);
 
 
-	//DrawDebugSphere(GetWorld(), GetActorLocation(), 1000, 16, FColor::Green, false, 0.05f);
 	ACharacterDefaultBase* lockOnTarget = nullptr;
 	float ClosestDistSq = 3000* 3000;
 
@@ -299,6 +300,11 @@ bool ACharacterPlayableBase::CheckContinueLockOn()
 
 void ACharacterPlayableBase::ReleaseLockOn()
 {
+	if (LockOnComp)
+	{
+		LockOnComp->ReleaseLockOn();
+		return;
+	}
 	IsLockOn = false;
 	LockOnTargetChar->EndLockOnUI();
 	CharacterMovement->bOrientRotationToMovement = true;
@@ -323,6 +329,7 @@ void ACharacterPlayableBase::UpdateLockOnRotation(float DeltaTime)
 
 void ACharacterPlayableBase::Move(ETriggerEvent Trigger, const FInputActionInstance& Value)
 {
+	const bool bLockedOn = LockOnComp ? LockOnComp->IsLockedOn() : IsLockOn;
 
 	switch (Trigger)
 	{
@@ -359,7 +366,7 @@ void ACharacterPlayableBase::Move(ETriggerEvent Trigger, const FInputActionInsta
 
 				if (IsRunning)
 				{
-					if (IsLockOn)
+					if (bLockedOn)
 					{
 						CharacterMovement->bOrientRotationToMovement = true;
 						bUseControllerRotationYaw = false;
@@ -383,7 +390,7 @@ void ACharacterPlayableBase::Move(ETriggerEvent Trigger, const FInputActionInsta
 				}
 				else
 				{
-					if (IsLockOn)
+					if (bLockedOn)
 					{
 						CharacterMovement->bOrientRotationToMovement = false;
 						bUseControllerRotationYaw = true;
@@ -411,7 +418,7 @@ void ACharacterPlayableBase::Move(ETriggerEvent Trigger, const FInputActionInsta
 
 void ACharacterPlayableBase::Look(ETriggerEvent trigger, const FInputActionInstance& Value)
 {
-	if (IsLockOn) return;
+	if (LockOnComp ? LockOnComp->IsLockedOn() : IsLockOn) return;
 	switch (trigger)
 	{
 		case ETriggerEvent::Triggered:

@@ -22,6 +22,7 @@ class ABoneFire;
 class ADropItem;
 class UManager_Bonefire;
 class USpringArmComponent;
+class ULockOnComponent;
 UCLASS()
 class LIKESOULLIKE_API ACharacterPlayableBase : public ACharacterDefaultBase
 {
@@ -39,7 +40,7 @@ public:
 	int32 WeaponSlot1WeaponDamage;
 	int32 WeaponSlot2WeaponDamage;
 	int32 WeaponSlot3WeaponDamage;
-	TArray< FStatusCondition> arrStatusCondition;
+	TArray<FStatusCondition> arrStatusCondition;
 
 	int32 CurrentWeaponSlotNum;
 	int32 CurrentQuickSlotNum;
@@ -61,6 +62,9 @@ public:
 	float SprintStaminaAcc;
 
 	bool IsAimMode;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Component", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<ULockOnComponent> LockOnComp;
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -80,6 +84,10 @@ public:
 	void HandleInput(FName actionName, ETriggerEvent trigger, const FInputActionInstance& value);
 
 	void UpdateStatus();
+
+	void SetLockOnState(bool bOn, ACharacterDefaultBase* Target);
+	bool GetIsLockOnState() const { return IsLockOn; }
+	ACharacterDefaultBase* GetLockOnTarget() const { return LockOnTargetChar; }
 
 	void TryLockOn();
 	bool CheckTargetLock(ACharacterDefaultBase * Target, float& ClosestDistSq);
