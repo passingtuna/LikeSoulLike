@@ -82,7 +82,6 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Component", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UPlayerStatusComponent> PlayerStatusComp;
-
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Component", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UDeathRespawnComponent> DeathRespawnComp;
 
@@ -126,8 +125,6 @@ public:
 	UManager_Bonefire* GetBonefireManager() const { return BonefireManager; }
 	int32 GetCurrentQuickSlotIndex() const { return CurrentQuickSlotNum; }
 	const FCharacterState& GetMaxState() const { return MaxState; }
-
-	// EquipmentComponent 브리지 (ACharacterDefaultBase 보호 멤버 접근)
 	void SetCurrentWeaponInternal(AWeaponDefaultBase* NewWeapon);
 	void SetDeadStateInternal(bool bDead);
 
