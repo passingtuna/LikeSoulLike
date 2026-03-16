@@ -25,7 +25,7 @@
 #include "LockOnComponent.h"
 #include "InteractComponent.h"
 #include "EquipmentComponent.h"
-
+#include "PlayerStatusComponent.h"
 #include "DeathRespawnComponent.h"
 #include "ItemUseComponent.h"
 
@@ -39,7 +39,7 @@ ACharacterPlayableBase::ACharacterPlayableBase()
 	LockOnComp = CreateDefaultSubobject<ULockOnComponent>(TEXT("LockOnComponent"));
 	InteractComp = CreateDefaultSubobject<UInteractComponent>(TEXT("InteractComponent"));
 	EquipmentComp = CreateDefaultSubobject<UEquipmentComponent>(TEXT("EquipmentComponent"));
-
+	PlayerStatusComp = CreateDefaultSubobject<UPlayerStatusComponent>(TEXT("PlayerStatusComponent"));
 	DeathRespawnComp = CreateDefaultSubobject<UDeathRespawnComponent>(TEXT("DeathRespawnComponent"));
 	ItemUseComp = CreateDefaultSubobject<UItemUseComponent>(TEXT("ItemUseComponent"));
 }
@@ -80,6 +80,10 @@ void ACharacterPlayableBase::BeginPlay()
 	{
 		EquipmentComp->Initialize(this);
 	}
+	if (PlayerStatusComp)
+	{
+		PlayerStatusComp->Initialize(this);
+	}
 	if (DeathRespawnComp)
 	{
 		DeathRespawnComp->Initialize(this);
@@ -95,6 +99,10 @@ void ACharacterPlayableBase::BeginPlay()
 	UIManager = GetWorld()->GetGameInstance()->GetSubsystem<UManager_UI>();
 	UIManager->InitUI(this);
 	UpdateStatus();
+	if (PlayerStatusComp)
+	{
+		PlayerStatusComp->BroadcastAll();
+	}
 	CurrentWeaponSlotNum = 0;
 	CurrentQuickSlotNum  = 0;
 
@@ -116,7 +124,6 @@ void ACharacterPlayableBase::BeginPlay()
 
 	temp = InventoryComp->GetQuickSlotItem(CurrentWeaponSlotNum);
 	UIManager->ChangeQuickSlot(temp);
-	UIManager->ChangeSoul(CurrentStatus.Soul);
 
 	GetGameInstance()->GetSubsystem<UManager_Enemy>()->UpdatePlayerCharacter(this);
 
@@ -142,6 +149,11 @@ void ACharacterPlayableBase::UpdateCurrentQuickSlotUI()
 	}
 	FItemData temp = InventoryComp->GetQuickSlotItem(CurrentQuickSlotNum);
 	UIManager->ChangeQuickSlot(temp);
+}
+
+UManager_Enemy* ACharacterPlayableBase::GetEnemyManager() const
+{
+	return GetGameInstance()->GetSubsystem<UManager_Enemy>();
 }
 
 void ACharacterPlayableBase::SetLockOnState(bool bOn, ACharacterDefaultBase* Target)
@@ -540,7 +552,7 @@ void ACharacterPlayableBase::SetAimingMode(bool On)
 		IsAimMode = true;
 		SpringArmComp->TargetArmLength = 60;
 		SpringArmComp->SocketOffset.Y = 40;
-		UIManager->ShowAimWidget(true);
+		OnAimWidgetChanged.Broadcast(true);
 	}
 	else
 	{
@@ -550,7 +562,7 @@ void ACharacterPlayableBase::SetAimingMode(bool On)
 		UE_LOG(LogTemp, Warning, TEXT("해제"));
 		GetAnimInstance()->SetAimOffsetMode(false);
 		GetAnimInstance()->StopAllMontages(0);
-		UIManager->ShowAimWidget(false);
+		OnAimWidgetChanged.Broadcast(false);
 		ActionEnd();
 	}
 }
@@ -706,6 +718,11 @@ void ACharacterPlayableBase::DiedProcess()
 
 void ACharacterPlayableBase::ModifyCurrentSoul(int32 soul)
 {
+	if (PlayerStatusComp)
+	{
+		PlayerStatusComp->AddSoul(soul);
+		return;
+	}
 	CurrentStatus.Soul += soul;
 	if (CurrentStatus.Soul < 0) CurrentStatus.Soul = 0;
 	UIManager->ChangeSoul(CurrentStatus.Soul);
@@ -832,21 +849,42 @@ void ACharacterPlayableBase::EqiupMainSlotWeapon(int32 slotNum)
 void ACharacterPlayableBase::ModifyCurrentHealth(int32 param)
 {
 	Super::ModifyCurrentHealth(param);
-	UIManager->SetPlayerHP(CurrentState.HP, MaxState.HP);
+	if (PlayerStatusComp)
+	{
+		PlayerStatusComp->OnHealthChanged();
+	}
+	else
+	{
+		UIManager->SetPlayerHP(CurrentState.HP, MaxState.HP);
+	}
 	
 }
 void ACharacterPlayableBase::ModifyCurrentStemina(int32 stemina )
 {
 	Super::ModifyCurrentStemina(stemina);
-	UIManager->SetPlayerSP(CurrentState.Stemina, MaxState.Stemina);
+	if (PlayerStatusComp)
+	{
+		PlayerStatusComp->OnSteminaChanged();
+	}
+	else
+	{
+		UIManager->SetPlayerSP(CurrentState.Stemina, MaxState.Stemina);
+	}
 
 }
 void ACharacterPlayableBase::ModifyCurrentMana(int32 mana)
 {
 	Super::ModifyCurrentMana(mana);
-	if (GetWorld()->GetFirstPlayerController()->GetPawn() == this)
+	if (PlayerStatusComp)
 	{
-		UIManager->SetPlayerMP(CurrentState.Mana, MaxState.Mana);
+		PlayerStatusComp->OnManaChanged();
+	}
+	else
+	{
+		if (GetWorld()->GetFirstPlayerController()->GetPawn() == this)
+		{
+			UIManager->SetPlayerMP(CurrentState.Mana, MaxState.Mana);
+		}
 	}
 }
 
