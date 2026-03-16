@@ -25,6 +25,7 @@ class USpringArmComponent;
 class ULockOnComponent;
 
 class UEquipmentComponent;
+class UItemUseComponent;
 UCLASS()
 class LIKESOULLIKE_API ACharacterPlayableBase : public ACharacterDefaultBase
 {
@@ -69,7 +70,11 @@ public:
 	TObjectPtr<ULockOnComponent> LockOnComp;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Component", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Component", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UEquipmentComponent> EquipmentComp;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Component", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UItemUseComponent> ItemUseComp;
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;

@@ -25,6 +25,8 @@
 #include "LockOnComponent.h"
 #include "EquipmentComponent.h"
 
+#include "ItemUseComponent.h"
+
 
 // Sets default values
 ACharacterPlayableBase::ACharacterPlayableBase()
@@ -34,6 +36,8 @@ ACharacterPlayableBase::ACharacterPlayableBase()
 	InventoryComp = CreateDefaultSubobject<UInventoryComponent>(TEXT("InventoryComponent"));
 	LockOnComp = CreateDefaultSubobject<ULockOnComponent>(TEXT("LockOnComponent"));
 	EquipmentComp = CreateDefaultSubobject<UEquipmentComponent>(TEXT("EquipmentComponent"));
+
+	ItemUseComp = CreateDefaultSubobject<UItemUseComponent>(TEXT("ItemUseComponent"));
 }
 
 FGenericTeamId ACharacterPlayableBase::GetGenericTeamId() const
@@ -68,6 +72,11 @@ void ACharacterPlayableBase::BeginPlay()
 	if (EquipmentComp)
 	{
 		EquipmentComp->Initialize(this);
+	}
+
+	if (ItemUseComp)
+	{
+		ItemUseComp->Initialize(this);
 	}
 
 	bUseControllerRotationYaw = false;
@@ -650,26 +659,11 @@ void ACharacterPlayableBase::UseItem(ETriggerEvent Trigger)
 	{
 		case ETriggerEvent::Started:
 		{
-			SetCrouchState(false);
-			if (!IsMoveable) return;
-			FItemData* temp = InventoryComp->GetQuickSlotItemInfo(CurrentQuickSlotNum);
-			if (!temp) return;
-
-			FItemBaseData baseData = ItemInfoManager->GetItemBaseData((*temp).ID);
-			if ((*temp).Count < 1) return;
-
-			if (baseData.ItemType != EItemType::IT_Refillable &&
-				baseData.ItemType != EItemType::IT_Consumable)
+			if (ItemUseComp)
 			{
+				ItemUseComp->HandleUseItem();
 				return;
 			}
-
-			UAnimMontage* CurrentMontage = AnimInstance->GetCurrentActiveMontage();
-			if (CurrentMontage && (CurrentMontage->GetName() == "UsePotion_Montage" || CurrentMontage->GetName() == "UsePaper")) return;
-			if(!ExcuteItemAffect(baseData.ItemAffectData)) return;
-			ReadyToAction();
-			InventoryComp->ConsumeItem(temp, 1);
-			UpdateCurrentQuickSlotUI();
 		}
 	}
 }
