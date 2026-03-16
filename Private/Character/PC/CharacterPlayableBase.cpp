@@ -23,6 +23,7 @@
 #include "Manager_Bonefire.h"
 #include "Manager_Enemy.h"
 #include "LockOnComponent.h"
+#include "EquipmentComponent.h"
 
 
 // Sets default values
@@ -32,6 +33,7 @@ ACharacterPlayableBase::ACharacterPlayableBase()
 	PrimaryActorTick.bCanEverTick = true;
 	InventoryComp = CreateDefaultSubobject<UInventoryComponent>(TEXT("InventoryComponent"));
 	LockOnComp = CreateDefaultSubobject<ULockOnComponent>(TEXT("LockOnComponent"));
+	EquipmentComp = CreateDefaultSubobject<UEquipmentComponent>(TEXT("EquipmentComponent"));
 }
 
 FGenericTeamId ACharacterPlayableBase::GetGenericTeamId() const
@@ -63,6 +65,11 @@ void ACharacterPlayableBase::BeginPlay()
 		LockOnComp->Initialize(this, CameraComp, PlayerController, CharacterMovement);
 	}
 
+	if (EquipmentComp)
+	{
+		EquipmentComp->Initialize(this);
+	}
+
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationRoll = false;
@@ -74,8 +81,16 @@ void ACharacterPlayableBase::BeginPlay()
 
 	ItemInfoManager = GetGameInstance()->GetSubsystem<UManager_ItemInfo>();
 
-	AddWeaponToMainSlot(BaseWeapon, BaseWeaponSlot);
-	EqiupMainSlotWeapon(0);
+	if (EquipmentComp)
+	{
+		EquipmentComp->AddWeaponToMainSlot(BaseWeapon, BaseWeaponSlot);
+		EquipmentComp->EquipMainSlotWeapon(0);
+	}
+	else
+	{
+		AddWeaponToMainSlot(BaseWeapon, BaseWeaponSlot);
+		EqiupMainSlotWeapon(0);
+	}
 
 	FItemData temp = InventoryComp->GetWeaponSlotWeapon(CurrentWeaponSlotNum);
 	UIManager->ChangeWeaponSlot(temp);
@@ -91,11 +106,21 @@ void ACharacterPlayableBase::BeginPlay()
 }
 void ACharacterPlayableBase::UpdateCurrentWeaponSlotUI()
 {
+	if (EquipmentComp)
+	{
+		EquipmentComp->UpdateCurrentWeaponSlotUI();
+		return;
+	}
 	FItemData temp = InventoryComp->GetWeaponSlotWeapon(CurrentWeaponSlotNum);
 	UIManager->ChangeWeaponSlot(temp);
 }
 void ACharacterPlayableBase::UpdateCurrentQuickSlotUI()
 {
+	if (EquipmentComp)
+	{
+		EquipmentComp->UpdateCurrentQuickSlotUI();
+		return;
+	}
 	FItemData temp = InventoryComp->GetQuickSlotItem(CurrentQuickSlotNum);
 	UIManager->ChangeQuickSlot(temp);
 }
@@ -104,6 +129,11 @@ void ACharacterPlayableBase::SetLockOnState(bool bOn, ACharacterDefaultBase* Tar
 {
 	IsLockOn = bOn;
 	LockOnTargetChar = Target;
+}
+
+void ACharacterPlayableBase::SetCurrentWeaponInternal(AWeaponDefaultBase* NewWeapon)
+{
+	CurrentWeapon = NewWeapon;
 }
 void ACharacterPlayableBase::Tick(float DeltaTime)
 {
@@ -652,7 +682,14 @@ void ACharacterPlayableBase::WeaponChange(ETriggerEvent trigger)
 	{
 	case ETriggerEvent::Started:
 	{
-		EqiupMainSlotWeapon((CurrentWeaponSlotNum + 1) % 3);
+		if (EquipmentComp)
+		{
+			EquipmentComp->WeaponChange();
+		}
+		else
+		{
+			EqiupMainSlotWeapon((CurrentWeaponSlotNum + 1) % 3);
+		}
 	}
 	break;
 	default: break;
@@ -664,7 +701,14 @@ void ACharacterPlayableBase::QuickSlotChange(ETriggerEvent trigger)
 	{
 		case ETriggerEvent::Started:
 		{
-			EqiupQuickSlotItem((CurrentQuickSlotNum + 1) % 3);
+			if (EquipmentComp)
+			{
+				EquipmentComp->QuickSlotChange();
+			}
+			else
+			{
+				EqiupQuickSlotItem((CurrentQuickSlotNum + 1) % 3);
+			}
 		}
 		break;
 		default:break;
@@ -762,6 +806,11 @@ void ACharacterPlayableBase::DropSoul()
 
 void ACharacterPlayableBase::AddWeaponToMainSlot(TSoftClassPtr<AWeaponDefaultBase> weapon, int32 slotNum)
 {
+	if (EquipmentComp)
+	{
+		EquipmentComp->AddWeaponToMainSlot(weapon, slotNum);
+		return;
+	}
 	TSubclassOf<AWeaponDefaultBase> SpwanBp = weapon.Get(); // 로드 확인
 	if (!SpwanBp) SpwanBp = weapon.LoadSynchronous(); //동기 로드 시도
 	if (!SpwanBp) return; //동기 로드도 실패면 리턴
@@ -800,6 +849,11 @@ void ACharacterPlayableBase::AddWeaponToMainSlot(TSoftClassPtr<AWeaponDefaultBas
 
 void ACharacterPlayableBase::ResetWeaponSlotInfo(int32 slotNum)
 {
+	if (EquipmentComp)
+	{
+		EquipmentComp->ResetWeaponSlotInfo(slotNum);
+		return;
+	}
 	if (slotNum > BaseWeaponSlot-1) return;
 	if (MainWeaponSlot[slotNum])
 	{
@@ -811,11 +865,21 @@ void ACharacterPlayableBase::ResetWeaponSlotInfo(int32 slotNum)
 
 void ACharacterPlayableBase::EqiupQuickSlotItem(int32 slotNum)
 {
+	if (EquipmentComp)
+	{
+		EquipmentComp->EquipQuickSlotItem(slotNum);
+		return;
+	}
 	CurrentQuickSlotNum = slotNum;
 	UpdateCurrentQuickSlotUI();
 }
 void ACharacterPlayableBase::EqiupMainSlotWeapon(int32 slotNum)
 {
+	if (EquipmentComp)
+	{
+		EquipmentComp->EquipMainSlotWeapon(slotNum);
+		return;
+	}
 	if (slotNum > BaseWeaponSlot-1) return;
 	CurrentWeaponSlotNum = slotNum; 
 	if (CurrentWeapon) CurrentWeapon->SetActiveWeapon(false);

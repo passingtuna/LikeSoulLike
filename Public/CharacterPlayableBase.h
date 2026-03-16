@@ -23,6 +23,8 @@ class ADropItem;
 class UManager_Bonefire;
 class USpringArmComponent;
 class ULockOnComponent;
+
+class UEquipmentComponent;
 UCLASS()
 class LIKESOULLIKE_API ACharacterPlayableBase : public ACharacterDefaultBase
 {
@@ -65,6 +67,9 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Component", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<ULockOnComponent> LockOnComp;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Component", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UEquipmentComponent> EquipmentComp;
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -81,6 +86,8 @@ public:
 	void ModifyCurrentSoul(int32 soul);
 
 	ASoulLikeController* GetPlayerController() {return PlayerController;	};
+
+	UEquipmentComponent* GetEquipmentComponent() const { return EquipmentComp; }
 	void HandleInput(FName actionName, ETriggerEvent trigger, const FInputActionInstance& value);
 
 	void UpdateStatus();
@@ -88,6 +95,9 @@ public:
 	void SetLockOnState(bool bOn, ACharacterDefaultBase* Target);
 	bool GetIsLockOnState() const { return IsLockOn; }
 	ACharacterDefaultBase* GetLockOnTarget() const { return LockOnTargetChar; }
+
+	int32 GetCurrentQuickSlotIndex() const { return CurrentQuickSlotNum; }
+	void SetCurrentWeaponInternal(AWeaponDefaultBase* NewWeapon);
 
 	void TryLockOn();
 	bool CheckTargetLock(ACharacterDefaultBase * Target, float& ClosestDistSq);
