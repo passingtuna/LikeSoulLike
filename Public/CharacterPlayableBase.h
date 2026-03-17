@@ -128,13 +128,6 @@ public:
 	void SetCurrentWeaponInternal(AWeaponDefaultBase* NewWeapon);
 	void SetDeadStateInternal(bool bDead);
 
-	void TryLockOn();
-	bool CheckTargetLock(ACharacterDefaultBase * Target, float& ClosestDistSq);
-	bool CheckContinueLockOn();
-	void ReleaseLockOn();
-	void UpdateLockOnRotation(float DeltaTime);
-
-
 	void SetStatusCondition(FStatusCondition condition);
 	void CheckStatusCondition(float deltaTime);
 	FStatusCondition* FindStatusByName(FName name);

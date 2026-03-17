@@ -225,6 +225,8 @@ void ACharacterPlayableBase::HandleInput(FName ActionName, ETriggerEvent Trigger
 	else if (ActionName == "WeaponAction")	ExcutingWeaponBaseAction(EActionInputType::AIT_WeaponAction, Trigger);
 	else if (ActionName == "WeaponSkill")	ExcutingWeaponBaseAction(EActionInputType::AIT_WeaponSkill, Trigger);
 	else if (ActionName == "UserMenu")      UserMenu(Trigger);
+	
+
 }
 void ACharacterPlayableBase::UserMenu(ETriggerEvent trigger)
 {
@@ -240,10 +242,7 @@ void ACharacterPlayableBase::LockOn(ETriggerEvent Trigger)
 	{
 		case ETriggerEvent::Started:
 		{
-			if (LockOnComp)
-			{
-				LockOnComp->ToggleLockOn();
-			}
+			LockOnComp->ToggleLockOn();
 		}
 		break;
 	default: break;
@@ -252,149 +251,9 @@ void ACharacterPlayableBase::LockOn(ETriggerEvent Trigger)
 
 
 
-void ACharacterPlayableBase::TryLockOn() 
-{
-	if (LockOnComp)
-	{
-		LockOnComp->TryLockOn();
-		return;
-	}
-	TArray<FOverlapResult> Overlaps;
-
-	FCollisionShape Sphere = FCollisionShape::MakeSphere(1000);
-	FCollisionQueryParams Params;
-	Params.AddIgnoredActor(this);
-
-	GetWorld()->OverlapMultiByChannel(
-		Overlaps,
-		GetActorLocation(),
-		FQuat::Identity,
-		ECC_Pawn,
-		Sphere,
-		Params
-	);
-
-
-	ACharacterDefaultBase* lockOnTarget = nullptr;
-	float ClosestDistSq = 3000* 3000;
-
-	for (auto& Target : Overlaps)
-	{
-		ACharacterDefaultBase* CharacterBase = Cast<ACharacterDefaultBase>(Target.GetActor());
-		if (!CharacterBase || CharacterBase->GetIsDead()) continue;
-		if (CheckTargetLock(CharacterBase, ClosestDistSq))
-		{
-			lockOnTarget = CharacterBase;
-		}
-	}
-	if (lockOnTarget)
-	{
-		IsLockOn = true;
-		LockOnTargetChar = lockOnTarget;
-		LockOnTargetChar->StartLockOnUI();
-		bUseControllerRotationYaw = true;
-		CharacterMovement->bOrientRotationToMovement = false;
-	}
-}
-bool ACharacterPlayableBase::CheckTargetLock(ACharacterDefaultBase* Target , float & ClosestDistSq)
-{
-	if (Target == this) return false;
-	if (!CheckHostileChar(Target,false)) return false; //중립과 아군은 록온타겟에서 제외
-	if (Target->GetIsDead()) return false;
-	FVector PlayerLoc = this->GetActorLocation();
-	FVector CameraLoc   = CameraComp->GetComponentLocation();
-	FVector TargetLoc = Target->GetActorLocation();
-
-	//거리 체크 지금까지 가장 가까웠던 거리와 체크
-	float DistSq = FVector::DistSquared(PlayerLoc, TargetLoc);
-
-
-	if (DistSq > ClosestDistSq) return false;
-
-	//시야각 1차 체크
-	FVector ToTarget = (TargetLoc - CameraLoc).GetSafeNormal();
-	float Dot = FVector::DotProduct(CameraComp->GetForwardVector(), ToTarget);
-	if (Dot < 0.6f) return false;
-
-	//화면 투영되어있는지 체크
-	FVector2D ScreenPos;
-	bool bOnScreen = UGameplayStatics::ProjectWorldToScreen(PlayerController, TargetLoc, ScreenPos);
-	if (!bOnScreen) return false;
-
-	//화면 해상도 체크
-	int32 SizeX, SizeY;
-	PlayerController->GetViewportSize(SizeX, SizeY);
-	if (ScreenPos.X < 0 || ScreenPos.X > SizeX ||
-		ScreenPos.Y < 0 || ScreenPos.Y > SizeY)
-		return false;
-
-
-	FHitResult Hit;
-
-	FCollisionQueryParams Params;
-	Params.AddIgnoredActor(GetOwner()); // 플레이어
-	Params.AddIgnoredActor(this);       // 컴포넌트 소유자
-	bool bHit = GetWorld()->LineTraceSingleByChannel(
-		Hit,
-		CameraLoc,
-		TargetLoc,
-		ECC_Visibility, Params
-	);
-
-	if (bHit && Hit.GetActor() != Target) return false;
-
-	ClosestDistSq = DistSq;
-	return true;
-}
-bool ACharacterPlayableBase::CheckContinueLockOn()
-{
-	if (LockOnTargetChar->GetIsDead()) return false;
-
-	FVector PlayerLoc = this->GetActorLocation();
-	FVector TargetLoc = LockOnTargetChar->GetActorLocation();
-	float DistSq = FVector::DistSquared(PlayerLoc, TargetLoc);
-	//거리 계산
-	if (DistSq > 3000 * 3000) return false;
-	//화면 투영되어있는지 체크
-	FVector2D ScreenPos;
-	bool bOnScreen = UGameplayStatics::ProjectWorldToScreen(PlayerController, TargetLoc, ScreenPos);
-	if (!bOnScreen) return false;
-
-	return true;
-}
-
-void ACharacterPlayableBase::ReleaseLockOn()
-{
-	if (LockOnComp)
-	{
-		LockOnComp->ReleaseLockOn();
-		return;
-	}
-	IsLockOn = false;
-	LockOnTargetChar->EndLockOnUI();
-	CharacterMovement->bOrientRotationToMovement = true;
-	bUseControllerRotationYaw = false;
-	LockOnTargetChar = nullptr;
-}
-
-void ACharacterPlayableBase::UpdateLockOnRotation(float DeltaTime)
-{
-	FVector CameraLoc = CameraComp->GetComponentLocation();
-	FVector TargetLoc = LockOnTargetChar->GetMesh()->GetSocketLocation(TEXT("Death_Torso"));
-	TargetLoc.Z -= 60;
-	FRotator DesiredRot = UKismetMathLibrary::FindLookAtRotation(CameraLoc, TargetLoc);
-
-	FRotator CurrentRot = GetController()->GetControlRotation();
-
-	FRotator NewRot = FMath::RInterpTo(CurrentRot,DesiredRot,DeltaTime,20.0f);
-
-	GetController()->SetControlRotation(NewRot);
-}
-
-
 void ACharacterPlayableBase::Move(ETriggerEvent Trigger, const FInputActionInstance& Value)
 {
-	const bool bLockedOn = LockOnComp ? LockOnComp->IsLockedOn() : IsLockOn;
+	const bool bLockedOn = LockOnComp->IsLockedOn();
 
 	switch (Trigger)
 	{
@@ -471,7 +330,6 @@ void ACharacterPlayableBase::Move(ETriggerEvent Trigger, const FInputActionInsta
 			break;
 		case ETriggerEvent::Completed:
 			{
-				UE_LOG(LogTemp, Warning, TEXT("StopSound"));
 				LastElapsedInterval = 0;
 				LastInputDir = FVector::ZeroVector;
 				StopSound(true);
@@ -483,7 +341,7 @@ void ACharacterPlayableBase::Move(ETriggerEvent Trigger, const FInputActionInsta
 
 void ACharacterPlayableBase::Look(ETriggerEvent trigger, const FInputActionInstance& Value)
 {
-	if (LockOnComp ? LockOnComp->IsLockedOn() : IsLockOn) return;
+	if (LockOnComp->IsLockedOn()) return;
 	switch (trigger)
 	{
 		case ETriggerEvent::Triggered:
@@ -524,7 +382,6 @@ void ACharacterPlayableBase::Avoid(ETriggerEvent trigger, const FInputActionInst
 			}
 			else if (LastInputDir == FVector::ZeroVector)
 			{
-				UE_LOG(LogTemp, Warning, TEXT("Crouch"));
 				SetCrouchState(!IsCrouch);
 			}
 			else
@@ -557,7 +414,6 @@ void ACharacterPlayableBase::SetAimingMode(bool On)
 		IsAimMode = false;
 		SpringArmComp->TargetArmLength = 200;
 		SpringArmComp->SocketOffset.Y = 0;
-		UE_LOG(LogTemp, Warning, TEXT("해제"));
 		GetAnimInstance()->SetAimOffsetMode(false);
 		GetAnimInstance()->StopAllMontages(0);
 		OnAimWidgetChanged.Broadcast(false);
@@ -572,10 +428,7 @@ void ACharacterPlayableBase::Interact(ETriggerEvent Trigger)
 	{
 		case ETriggerEvent::Started:
 		{
-			if (InteractComp)
-			{
-				InteractComp->HandleInteract();
-			}
+			InteractComp->HandleInteract();
 		}
 		break;
 	default: break;
@@ -591,11 +444,7 @@ void ACharacterPlayableBase::UseItem(ETriggerEvent Trigger)
 	{
 		case ETriggerEvent::Started:
 		{
-			if (ItemUseComp)
-			{
-				ItemUseComp->HandleUseItem();
-				return;
-			}
+			ItemUseComp->HandleUseItem();
 		}
 	}
 }
@@ -608,14 +457,7 @@ void ACharacterPlayableBase::WeaponChange(ETriggerEvent trigger)
 	{
 	case ETriggerEvent::Started:
 	{
-		if (EquipmentComp)
-		{
-			EquipmentComp->WeaponChange();
-		}
-		else
-		{
-			EqiupMainSlotWeapon((CurrentWeaponSlotNum + 1) % 3);
-		}
+		EquipmentComp->WeaponChange();
 	}
 	break;
 	default: break;
@@ -627,14 +469,7 @@ void ACharacterPlayableBase::QuickSlotChange(ETriggerEvent trigger)
 	{
 		case ETriggerEvent::Started:
 		{
-			if (EquipmentComp)
-			{
-				EquipmentComp->QuickSlotChange();
-			}
-			else
-			{
-				EqiupQuickSlotItem((CurrentQuickSlotNum + 1) % 3);
-			}
+			EquipmentComp->QuickSlotChange();
 		}
 		break;
 		default:break;
@@ -716,14 +551,7 @@ void ACharacterPlayableBase::DiedProcess()
 
 void ACharacterPlayableBase::ModifyCurrentSoul(int32 soul)
 {
-	if (PlayerStatusComp)
-	{
-		PlayerStatusComp->AddSoul(soul);
-		return;
-	}
-	CurrentStatus.Soul += soul;
-	if (CurrentStatus.Soul < 0) CurrentStatus.Soul = 0;
-	UIManager->ChangeSoul(CurrentStatus.Soul);
+	PlayerStatusComp->AddSoul(soul);
 }
 
 
@@ -742,11 +570,7 @@ void ACharacterPlayableBase::DropSoul()
 
 void ACharacterPlayableBase::AddWeaponToMainSlot(TSoftClassPtr<AWeaponDefaultBase> weapon, int32 slotNum)
 {
-	if (EquipmentComp)
-	{
-		EquipmentComp->AddWeaponToMainSlot(weapon, slotNum);
-		return;
-	}
+	EquipmentComp->AddWeaponToMainSlot(weapon, slotNum);
 	TSubclassOf<AWeaponDefaultBase> SpwanBp = weapon.Get(); // 로드 확인
 	if (!SpwanBp) SpwanBp = weapon.LoadSynchronous(); //동기 로드 시도
 	if (!SpwanBp) return; //동기 로드도 실패면 리턴
@@ -785,11 +609,7 @@ void ACharacterPlayableBase::AddWeaponToMainSlot(TSoftClassPtr<AWeaponDefaultBas
 
 void ACharacterPlayableBase::ResetWeaponSlotInfo(int32 slotNum)
 {
-	if (EquipmentComp)
-	{
-		EquipmentComp->ResetWeaponSlotInfo(slotNum);
-		return;
-	}
+	EquipmentComp->ResetWeaponSlotInfo(slotNum);
 	if (slotNum > BaseWeaponSlot-1) return;
 	if (MainWeaponSlot[slotNum])
 	{
@@ -801,89 +621,30 @@ void ACharacterPlayableBase::ResetWeaponSlotInfo(int32 slotNum)
 
 void ACharacterPlayableBase::EqiupQuickSlotItem(int32 slotNum)
 {
-	if (EquipmentComp)
-	{
-		EquipmentComp->EquipQuickSlotItem(slotNum);
-		return;
-	}
-	CurrentQuickSlotNum = slotNum;
-	UpdateCurrentQuickSlotUI();
+	EquipmentComp->EquipQuickSlotItem(slotNum);
 }
 void ACharacterPlayableBase::EqiupMainSlotWeapon(int32 slotNum)
 {
-	if (EquipmentComp)
-	{
-		EquipmentComp->EquipMainSlotWeapon(slotNum);
-		return;
-	}
-	if (slotNum > BaseWeaponSlot-1) return;
-	CurrentWeaponSlotNum = slotNum; 
-	if (CurrentWeapon) CurrentWeapon->SetActiveWeapon(false);
-
-	if (IsValid(MainWeaponSlot[CurrentWeaponSlotNum]))
-	{
-		MainWeaponSlot[CurrentWeaponSlotNum]->SetActiveWeapon(true);
-		CurrentWeapon = MainWeaponSlot[CurrentWeaponSlotNum];
-	}
-	else
-	{
-		CurrentWeapon = MainWeaponSlot[3];
-		CurrentWeapon->SetActiveWeapon(true);
-	}
-
-	if (!CurrentWeapon->bIsTwoHanded)
-	{
-		AnimInstance->SetIsTwoHandedWeapon(false);
-	}
-	if (CurrentWeapon->IdleMotion)  AnimInstance->WeaponIdleMotion = CurrentWeapon->IdleMotion;
-	if (CurrentWeapon->WalkMotion)	AnimInstance->WeaponWalkMotion = CurrentWeapon->WalkMotion;
-	if (CurrentWeapon->RunMotion)	AnimInstance->WeaponRunMotion = CurrentWeapon->RunMotion;
-
-	FItemData temp = InventoryComp->GetWeaponSlotWeapon(CurrentWeaponSlotNum);
-	UIManager->ChangeWeaponSlot(temp);
+	EquipmentComp->EquipMainSlotWeapon(slotNum);
 }
 
 
 void ACharacterPlayableBase::ModifyCurrentHealth(int32 param)
 {
 	Super::ModifyCurrentHealth(param);
-	if (PlayerStatusComp)
-	{
-		PlayerStatusComp->OnHealthChanged();
-	}
-	else
-	{
-		UIManager->SetPlayerHP(CurrentState.HP, MaxState.HP);
-	}
+	PlayerStatusComp->OnHealthChanged();
 	
 }
 void ACharacterPlayableBase::ModifyCurrentStemina(int32 stemina )
 {
 	Super::ModifyCurrentStemina(stemina);
-	if (PlayerStatusComp)
-	{
-		PlayerStatusComp->OnSteminaChanged();
-	}
-	else
-	{
-		UIManager->SetPlayerSP(CurrentState.Stemina, MaxState.Stemina);
-	}
+	PlayerStatusComp->OnSteminaChanged();
 
 }
 void ACharacterPlayableBase::ModifyCurrentMana(int32 mana)
 {
 	Super::ModifyCurrentMana(mana);
-	if (PlayerStatusComp)
-	{
-		PlayerStatusComp->OnManaChanged();
-	}
-	else
-	{
-		if (GetWorld()->GetFirstPlayerController()->GetPawn() == this)
-		{
-			UIManager->SetPlayerMP(CurrentState.Mana, MaxState.Mana);
-		}
-	}
+	PlayerStatusComp->OnManaChanged();
 }
 
 void ACharacterPlayableBase::UpdateStatus()

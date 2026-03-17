@@ -80,11 +80,8 @@ void AWeaponDefaultBase::SettingWeaponData(ACharacterDefaultBase* Character)
     
 
     OwnerCharacter = Character;
-    UE_LOG(LogTemp, Log, TEXT("1"));
     CalculateBaseDamage(OwnerCharacter);
-    UE_LOG(LogTemp, Log, TEXT("2"));
     SetActorEnableCollision(false);
-    UE_LOG(LogTemp, Log, TEXT("3"));
     if (bIsTwoHanded)
     {
         LeftHandGripComponet = Cast<USceneComponent>(GetDefaultSubobjectByName(TEXT("LeftHandGrip")));
