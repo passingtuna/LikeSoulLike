@@ -86,7 +86,7 @@ void UInteractComponent::HandleDropItem(ADropItem* DropItem)
 		return;
 	}
 
-	OwnerChar->PlaySound(TEXT("GetItem"));
+	OwnerChar->PlaySound(ESoundKey::SK_GetItem);
 
 	UInventoryComponent* InventoryComp = OwnerChar->GetInventoryComponent();
 	UManager_ItemInfo* ItemInfoManager = OwnerChar->GetItemInfoManager();

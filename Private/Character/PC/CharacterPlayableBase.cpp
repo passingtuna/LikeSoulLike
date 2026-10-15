@@ -310,7 +310,7 @@ void ACharacterPlayableBase::Move(ETriggerEvent Trigger, const FInputActionInsta
 					}
 					
 					if (CurrentState.Stemina <= 0) IsRunning = false;
-					PlaySound("Run",true);
+					PlaySound(ESoundKey::SK_Run, true);
 				}
 				else
 				{
@@ -321,7 +321,7 @@ void ACharacterPlayableBase::Move(ETriggerEvent Trigger, const FInputActionInsta
 					}
 					tempVector *= 0.6f;
 					tempVector = IsCrouch ? tempVector *= 0.5f : tempVector;
-					PlaySound("Walk", true);
+					PlaySound(ESoundKey::SK_Walk, true);
 				}
 
 				AddMovementInput(FrontDir, tempVector.Y);
