@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
+#include "LikeSoulLikeType.h"
 #include "DefaultSoundData.generated.h"
 
 /**
@@ -16,5 +17,5 @@ class LIKESOULLIKE_API UDA_DefaultSoundData : public UDataAsset
 	GENERATED_BODY()
 public:
 	UPROPERTY(EditAnyWhere, BlueprintReadOnly, Category = Sound)
-	TMap<FName, USoundBase*> SoundEffectMap;
+	TMap<TEnumAsByte<ESoundKey>, USoundBase*> SoundEffectMap;
 };

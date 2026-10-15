@@ -169,7 +169,7 @@ public:
 	bool CheckAndTryGrap();
 	
 	bool ExcuteItemAffect(FItemAffectData& data);
-	void PlaySound(FName SoundName , bool Constance = false);
+	void PlaySound(ESoundKey SoundKey , bool bLoop = false);
 	void StopSound(bool constance);
 };
  

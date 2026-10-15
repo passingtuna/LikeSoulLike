@@ -118,6 +118,14 @@ enum class EActionInputType : uint8
 };
 
 UENUM(BlueprintType)
+enum class ESoundKey : uint8
+{
+    SK_Walk     UMETA(DisplayName = "Walk"),
+    SK_Run      UMETA(DisplayName = "Run"),
+    SK_GetItem  UMETA(DisplayName = "GetItem"),
+};
+
+UENUM(BlueprintType)
 enum class EActionType : uint8
 {
     AT_MoveDefault  UMETA(DisplayName = "Move"),    //이동 기본 시퀀스 생성

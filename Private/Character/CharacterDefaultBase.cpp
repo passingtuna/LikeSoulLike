@@ -800,27 +800,29 @@ void ACharacterDefaultBase::ResetStates()
 }
 
 
-void ACharacterDefaultBase::PlaySound(FName SoundName , bool constance)
+void ACharacterDefaultBase::PlaySound(ESoundKey SoundKey , bool bLoop)
 {
-	USoundBase* sb_Sound;
-	if (!DefaultSound) return;
-	if (DefaultSound->SoundEffectMap.Contains(SoundName))
+	if (!DefaultSound)
 	{
-		sb_Sound = *DefaultSound->SoundEffectMap.Find(SoundName);
-		if (constance)
+		return;
+	}
+
+	if (USoundBase** FoundSound = DefaultSound->SoundEffectMap.Find(SoundKey))
+	{
+		USoundBase* Sound = *FoundSound;
+		if (bLoop)
 		{
-			if (AudioComp->GetSound() != sb_Sound)
+			if (AudioComp->GetSound() != Sound)
 			{
-				AudioComp->SetSound(sb_Sound);
+				AudioComp->SetSound(Sound);
 				AudioComp->Play();
 			}
 		}
 		else
 		{
-			AudioEffectComp->SetSound(sb_Sound);
+			AudioEffectComp->SetSound(Sound);
 			AudioEffectComp->Play();
 		}
-
 	}
 }
 
